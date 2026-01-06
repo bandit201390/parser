@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Stobix Movers</title>
+    <style>
+        body { font-family: Arial, sans-serif; background: #1e1e1e; color: #eee; padding: 20px; max-width: 1400px; margin: 0 auto; }
+        select, button { padding: 10px 15px; font-size: 16px; margin: 10px 5px 20px 0; background: #333; color: #eee; border: none; border-radius: 4px; cursor: pointer; }
+        button:hover { background: #444; }
+        .controls { display: flex; align-items: center; flex-wrap: wrap; gap: 10px; }
+        .tables-container { display: flex; gap: 30px; flex-wrap: wrap; }
+        .table-wrapper { flex: 1; min-width: 300px; }
+        table { width: 100%; border-collapse: collapse; background: #282828; border-radius: 8px; overflow: hidden; }
+        th { background: #333; padding: 12px; text-align: left; }
+        td { padding: 10px 12px; border-bottom: 1px solid #444; }
+        .green { color: #0f9; font-weight: bold; }
+        .red { color: #f66; font-weight: bold; }
+        h1 { color: #fff; margin-bottom: 10px; }
+        h2 { color: #fff; margin: 20px 0 10px; }
+        #lastupdate { color: #aaa; font-size: 14px; }
+        @media (max-width: 900px) { .tables-container { flex-direction: column; } }
+    </style>
+</head>
+<body>
+    <h1>Stobix USDT Movers</h1>
+    <div class="controls">
+        <label for="timeframe">Таймфрейм:</label>
+        <select id="timeframe">
+            <option value="24h">24 часа</option>
+            <option value="12h">12 часов</option>
+            <option value="4h">4 часа</option>
+            <option value="1h">1 час</option>
+        </select>
+        <button onclick="loadData()">Обновить сейчас</button>
+        <span id="lastupdate">-</span>
+    </div>
+
+    <div class="tables-container">
+        <div class="table-wrapper">
+            <h2>Топ-20 Growers</h2>
+            <table id="growers">
+                <tr><th>№</th><th>Пара</th><th>Цена USD</th><th>Изменение %</th></tr>
+            </table>
+        </div>
+
+        <div class="table-wrapper">
+            <h2>Топ-20 Losers</h2>
+            <table id="losers">
+                <tr><th>№</th><th>Пара</th><th>Цена USD</th><th>Изменение %</th></tr>
+            </table>
+        </div>
+    </div>
+
+    <script>
+        const pairs = ["0GUSDT","AAVEUSDT","ADAUSDT","ALGOUSDT","APEUSDT","APTUSDT","ARBUSDT","ASTERUSDT","ATOMUSDT","AVAXUSDT","AVNTUSDT","BCHUSDT","BNBUSDT","BONKUSDT","BTCUSDT","CAKEUSDT","COREUSDT","CRVUSDT","DASHUSDT","DOGEUSDT","DOTUSDT","EDENUSDT","ENAUSDT","ENSUSDT","ENSOUSDT","ETHUSDT","ETHFIUSDT","EULUSDT","FETUSDT","FFUSDT","FILUSDT","FLOKIUSDT","FORMUSDT","GALAUSDT","GRTUSDT","HBARUSDT","HYPEUSDT","ICPUSDT","IMXUSDT","INJUSDT","IOTAUSDT","IPUSDT","JUPUSDT","KAITOUSDT","LDOUSDT","LINEAUSDT","LINKUSDT","LISTAUSDT","LPTUSDT","LTCUSDT","MASKUSDT","MNTUSDT","MONUSDT","NEARUSDT","ONDOUSDT","OPUSDT","PENDLEUSDT","PENGUUSDT","PEPEUSDT","PNUTUSDT","POLUSDT","PUMPUSDT","PYTHUSDT","RAYUSDT","RENDERUSDT","SUSDT","SANDUSDT","SEIUSDT","SHIBUSDT","SNXUSDT","SOLUSDT","SOMIUSDT","STRKUSDT","STXUSDT","SUIUSDT","TAOUSDT","TIAUSDT","TONUSDT","TRUMPUSDT","TRXUSDT","TURBOUSDT","TWTUSDT","UNIUSDT","WIFUSDT","WLDUSDT","WLFIUSDT","XLMUSDT","XPLUSDT","XRPUSDT","ZECUSDT","ZENUSDT"];
+
+        async function loadData() {
+            const tf = document.getElementById('timeframe').value;
+            const url = `https://api.coingecko.com/api/v3/coins/markets?vs_currency=usd&order=market_cap_desc&per_page=250&page=1&price_change_percentage=1h%2C24h`;
+            try {
+                const response = await fetch(url);
+                if (!response.ok) throw new Error('API error: ' + response.status);
+                const data = await response.json();
+
+                const filtered = data.filter(coin => pairs.includes((coin.symbol || '').toUpperCase() + 'USDT'));
+
+                const changeKey = tf === '1h' ? 'price_change_percentage_1h_in_currency' : 'price_change_percentage_24h_in_currency';
+
+                const sorted = filtered.sort((a, b) => (b[changeKey] || 0) - (a[changeKey] || 0));
+
+                const growers = sorted.slice(0, 20);
+                const losers = sorted.slice(-20).reverse();
+
+                renderTable('growers', growers, changeKey);
+                renderTable('losers', losers, changeKey);
+
+                document.getElementById('lastupdate').innerText = 'Обновлено: ' + new Date().toLocaleString();
+            } catch (e) {
+                console.error(e);
+                document.getElementById('lastupdate').innerText = 'Ошибка загрузки данных: ' + e.message;
+            }
+        }
+
+        function renderTable(id, list, key) {
+            const table = document.getElementById(id);
+            table.innerHTML = '<tr><th>№</th><th>Пара</th><th>Цена USD</th><th>Изменение %</th></tr>';
+            list.forEach((coin, index) => {
+                const row = table.insertRow();
+                row.insertCell().textContent = index + 1;
+                row.insertCell().textContent = (coin.symbol || '').toUpperCase() + '/USDT';
+                row.insertCell().textContent = coin.current_price ? coin.current_price.toFixed(8).replace(/\.?0+$/, '') : '-';
+                const changeCell = row.insertCell();
+                const change = coin[key] || 0;
+                changeCell.textContent = (change > 0 ? '+' : '') + change.toFixed(2) + '%';
+                changeCell.className = change >= 0 ? 'green' : 'red';
+            });
+        }
+
+        loadData();
+        setInterval(loadData, 300000); // каждые 5 мин
+    </script>
+</body>
+</html>
