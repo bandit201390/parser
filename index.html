@@ -3,7 +3,9 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Stobix Movers</title>
+    <title>Stobix Movers + 24h Timeline + Trend + Acceleration</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
     <style>
         body { font-family: Arial, sans-serif; background: #1e1e1e; color: #eee; padding: 20px; max-width: 1400px; margin: 0 auto; }
         select, button { padding: 10px 15px; font-size: 16px; margin: 10px 5px 20px 0; background: #333; color: #eee; border: none; border-radius: 4px; cursor: pointer; }
@@ -11,26 +13,39 @@
         .controls { display: flex; align-items: center; flex-wrap: wrap; gap: 10px; }
         .tables-container { display: flex; gap: 30px; flex-wrap: wrap; }
         .table-wrapper { flex: 1; min-width: 300px; }
-        table { width: 100%; border-collapse: collapse; background: #282828; border-radius: 8px; overflow: hidden; }
+        table { width: 100%; border-collapse: collapse; background: #282828; border-radius: 8px; overflow: hidden; cursor: pointer; }
         th { background: #333; padding: 12px; text-align: left; }
         td { padding: 10px 12px; border-bottom: 1px solid #444; }
+        tr:hover { background: #333; }
         .green { color: #0f9; font-weight: bold; }
         .red { color: #f66; font-weight: bold; }
-        h1 { color: #fff; margin-bottom: 10px; }
-        h2 { color: #fff; margin: 20px 0 10px; }
+        a { color: #0af; text-decoration: underline; }
+        h1, h2 { color: #fff; }
         #lastupdate { color: #aaa; font-size: 14px; }
+        #chart-container { margin-top: 40px; background: #282828; padding: 20px; border-radius: 8px; }
+
+        /* Тепловая карта по ускорению */
+        .heat-row {
+            transition: background-color 0.3s ease;
+        }
+
+        /* Новые входы в топ */
+        .new-entry {
+            outline: 2px solid #ffd700;
+        }
+
         @media (max-width: 900px) { .tables-container { flex-direction: column; } }
     </style>
 </head>
+
 <body>
-    <h1>Stobix USDT Movers</h1>
+    <h1>Stobix USDT Movers + Acceleration + New Entries + Heatmap</h1>
+
     <div class="controls">
         <label for="timeframe">Таймфрейм:</label>
         <select id="timeframe">
-            <option value="24h">24 часа</option>
-            <option value="12h">12 часов</option>
-            <option value="4h">4 часа</option>
             <option value="1h">1 час</option>
+            <option value="24h">24 часа</option>
         </select>
         <button onclick="loadData()">Обновить сейчас</button>
         <span id="lastupdate">-</span>
@@ -39,66 +54,237 @@
     <div class="tables-container">
         <div class="table-wrapper">
             <h2>Топ-20 Growers</h2>
-            <table id="growers">
-                <tr><th>№</th><th>Пара</th><th>Цена USD</th><th>Изменение %</th></tr>
-            </table>
+            <table id="growers"><tr><th>№</th><th>Пара</th><th>Цена USD</th><th>Изменение %</th><th>Ускорение</th></tr></table>
         </div>
-
         <div class="table-wrapper">
             <h2>Топ-20 Losers</h2>
-            <table id="losers">
-                <tr><th>№</th><th>Пара</th><th>Цена USD</th><th>Изменение %</th></tr>
-            </table>
+            <table id="losers"><tr><th>№</th><th>Пара</th><th>Цена USD</th><th>Изменение %</th><th>Ускорение</th></tr></table>
         </div>
     </div>
 
-    <script>
-        const pairs = ["0GUSDT","AAVEUSDT","ADAUSDT","ALGOUSDT","APEUSDT","APTUSDT","ARBUSDT","ASTERUSDT","ATOMUSDT","AVAXUSDT","AVNTUSDT","BCHUSDT","BNBUSDT","BONKUSDT","BTCUSDT","CAKEUSDT","COREUSDT","CRVUSDT","DASHUSDT","DOGEUSDT","DOTUSDT","EDENUSDT","ENAUSDT","ENSUSDT","ENSOUSDT","ETHUSDT","ETHFIUSDT","EULUSDT","FETUSDT","FFUSDT","FILUSDT","FLOKIUSDT","FORMUSDT","GALAUSDT","GRTUSDT","HBARUSDT","HYPEUSDT","ICPUSDT","IMXUSDT","INJUSDT","IOTAUSDT","IPUSDT","JUPUSDT","KAITOUSDT","LDOUSDT","LINEAUSDT","LINKUSDT","LISTAUSDT","LPTUSDT","LTCUSDT","MASKUSDT","MNTUSDT","MONUSDT","NEARUSDT","ONDOUSDT","OPUSDT","PENDLEUSDT","PENGUUSDT","PEPEUSDT","PNUTUSDT","POLUSDT","PUMPUSDT","PYTHUSDT","RAYUSDT","RENDERUSDT","SUSDT","SANDUSDT","SEIUSDT","SHIBUSDT","SNXUSDT","SOLUSDT","SOMIUSDT","STRKUSDT","STXUSDT","SUIUSDT","TAOUSDT","TIAUSDT","TONUSDT","TRUMPUSDT","TRXUSDT","TURBOUSDT","TWTUSDT","UNIUSDT","WIFUSDT","WLDUSDT","WLFIUSDT","XLMUSDT","XPLUSDT","XRPUSDT","ZECUSDT","ZENUSDT"];
+    <div id="chart-container" style="display:none;">
+        <h2 id="chart-title">24h timeline: выберите пару</h2>
+        <canvas id="timelineChart"></canvas>
+    </div>
 
-        async function loadData() {
-            const tf = document.getElementById('timeframe').value;
-            const url = `https://api.coingecko.com/api/v3/coins/markets?vs_currency=usd&order=market_cap_desc&per_page=250&page=1&price_change_percentage=1h%2C24h`;
-            try {
-                const response = await fetch(url);
-                if (!response.ok) throw new Error('API error: ' + response.status);
-                const data = await response.json();
+<script>
+/* ---------------------- ПАРЫ ---------------------- */
+const pairs = ["ZENUSDT","ZECUSDT","XRPUSDT","XPLUSDT","XLMUSDT","WLFIOUSDT","WLDUSDT","WIFUSDT","UNIUSDT","TWTUSDT","TURBOUSDT","TRXUSDT","TRUMPUSDT","TONUSDT","TIAUSDT","TAOUSDT","SUIUSDT","STXUSDT","STRKUSDT","SOMIUSDT","SOLUSDT","SNXUSDT","SHIBUSDT","SEIUSDT","SANDUSDT","SUSDT","RENDERUSDT","RAYUSDT","PYTHUSDT","PUMPUSDT","POLUSDT","PNUTUSDT","PEPEUSDT","PENGUUSDT","PENDLEUSDT","OPUSDT","ONDOUSDT","NEARUSDT","MONUSDT","MNTUSDT","MASKUSDT","LTCUSDT","LPTUSDT","LISTAUSDT","LINKUSDT","LINEAUSDT","LDOUSDT","KAITOUSDT","JUPUSDT","IPUSDT","IOTAUSDT","INJUSDT","IMXUSDT","ICPUSDT","HYPEUSDT","HBARUSDT","GRTUSDT","GALAUSDT","FORMUSDT","FLOKIUSDT","FILUSDT","FFUSDT","FETUSDT","EULUSDT","ETHFIUSDT","ETHUSDT","ENSOUSDT","ENSUSDT","ENAUSDT","EDENUSDT","DOTUSDT","DOGEUSDT","DASHUSDT","CRVUSDT","COREUSDT","CAKEUSDT","BTCUSDT","BONKUSDT","BNBUSDT","BCHUSDT","AVNTUSDT","AVAXUSDT","ATOMUSDT","ASTERUSDT","ARBUSDT","APTUSDT","APEUSDT","ALGOUSDT","ADAUSDT","AAVEUSDT","0GUSDT"];
 
-                const filtered = data.filter(coin => pairs.includes((coin.symbol || '').toUpperCase() + 'USDT'));
+let chart = null;
+let allCoins = [];
+const historyDepth = 5;
 
-                const changeKey = tf === '1h' ? 'price_change_percentage_1h_in_currency' : 'price_change_percentage_24h_in_currency';
+let previousTops = { growers: [], losers: [] };
+let previousChanges = { "1h": {}, "24h": {} };
 
-                const sorted = filtered.sort((a, b) => (b[changeKey] || 0) - (a[changeKey] || 0));
+let newGrowersSet = new Set();
+let newLosersSet = new Set();
 
-                const growers = sorted.slice(0, 20);
-                const losers = sorted.slice(-20).reverse();
+/* ---------------------- ЗАГРУЗКА ИСТОРИИ ---------------------- */
+const stored = localStorage.getItem('stobixHistoryTops');
+if (stored) {
+    previousTops = JSON.parse(stored);
+    previousTops.growers = previousTops.growers.slice(-historyDepth);
+    previousTops.losers = previousTops.losers.slice(-historyDepth);
+}
 
-                renderTable('growers', growers, changeKey);
-                renderTable('losers', losers, changeKey);
+const storedChanges = localStorage.getItem('stobixPrevChanges');
+if (storedChanges) {
+    try { previousChanges = JSON.parse(storedChanges); }
+    catch { previousChanges = { "1h": {}, "24h": {} }; }
+}
 
-                document.getElementById('lastupdate').innerText = 'Обновлено: ' + new Date().toLocaleString();
-            } catch (e) {
-                console.error(e);
-                document.getElementById('lastupdate').innerText = 'Ошибка загрузки данных: ' + e.message;
+if (Notification.permission === "default") Notification.requestPermission();
+
+/* ---------------------- ГЛАВНАЯ ФУНКЦИЯ ---------------------- */
+async function loadData() {
+    const tf = document.getElementById('timeframe').value;
+    const url = `https://api.coingecko.com/api/v3/coins/markets?vs_currency=usd&order=market_cap_desc&per_page=250&page=1&price_change_percentage=1h%2C24h`;
+
+    try {
+        const response = await fetch(url);
+        const data = await response.json();
+
+        allCoins = data.filter(coin => pairs.includes((coin.symbol || '').toUpperCase() + 'USDT'));
+
+        const changeKey = tf === '1h'
+            ? 'price_change_percentage_1h_in_currency'
+            : 'price_change_percentage_24h_in_currency';
+
+        /* ---------- УСКОРЕНИЕ ---------- */
+        allCoins.forEach(coin => {
+            const sym = coin.symbol.toUpperCase();
+            const current = coin[changeKey] ?? 0;
+            const prev = previousChanges[tf][sym] ?? null;
+            coin._accel = prev !== null ? current - prev : 0;
+            previousChanges[tf][sym] = current;
+        });
+
+        localStorage.setItem('stobixPrevChanges', JSON.stringify(previousChanges));
+
+        /* ---------- СОРТИРОВКА ---------- */
+        const sorted = allCoins.sort((a, b) => (b[changeKey] ?? 0) - (a[changeKey] ?? 0));
+
+        const growers = sorted.slice(0, 20);
+        const losers = sorted.slice(-20).reverse();
+
+        /* ---------- НОВЫЕ ВХОДЫ ---------- */
+        const prevGrowers = (previousTops.growers.at(-1) || []).map(s => s.toUpperCase());
+        const prevLosers = (previousTops.losers.at(-1) || []).map(s => s.toUpperCase());
+
+        newGrowersSet = new Set(growers.map(c => c.symbol.toUpperCase()).filter(s => !prevGrowers.includes(s)));
+        newLosersSet = new Set(losers.map(c => c.symbol.toUpperCase()).filter(s => !prevLosers.includes(s)));
+
+        /* ---------- ОБНОВЛЯЕМ ИСТОРИЮ ---------- */
+        previousTops.growers.push(growers.map(c => c.symbol.toUpperCase()));
+        previousTops.losers.push(losers.map(c => c.symbol.toUpperCase()));
+        previousTops.growers = previousTops.growers.slice(-historyDepth);
+        previousTops.losers = previousTops.losers.slice(-historyDepth);
+
+        localStorage.setItem('stobixHistoryTops', JSON.stringify(previousTops));
+
+        /* ---------- РЕНДЕР ---------- */
+        renderTable('growers', growers, changeKey, true);
+        renderTable('losers', losers, changeKey, false);
+
+        document.getElementById('lastupdate').innerText = 'Обновлено: ' + new Date().toLocaleString();
+
+    } catch (e) {
+        console.error(e);
+        document.getElementById('lastupdate').innerText = 'Ошибка загрузки данных';
+    }
+}
+
+/* ---------------------- ТЕПЛОВАЯ КАРТА ---------------------- */
+function getRowBackgroundByAcceleration(accel) {
+    const cap = 3;
+    const value = Math.max(-cap, Math.min(cap, accel));
+    const ratio = Math.abs(value) / cap;
+
+    if (ratio < 0.1) return 'transparent';
+
+    const alpha = 0.15 + 0.35 * ratio;
+
+    return value > 0
+        ? `rgba(0, 200, 0, ${alpha})`
+        : `rgba(220, 0, 0, ${alpha})`;
+}
+
+/* ---------------------- ТРЕНД СТРЕЛКИ ---------------------- */
+function getTrendArrow(symbolUpper, currentPos, isGrower) {
+    const historyList = previousTops[isGrower ? 'growers' : 'losers'];
+    if (historyList.length === 0) return ' 🆕';
+
+    let positions = [];
+    historyList.forEach(list => {
+        const pos = list.indexOf(symbolUpper);
+        if (pos !== -1) positions.push(pos + 1);
+    });
+
+    if (positions.length === 0) return ' 🆕';
+
+    const avgPrevPos = positions.reduce((a, b) => a + b, 0) / positions.length;
+
+    if (Math.abs(currentPos - avgPrevPos) < 1) return '';
+
+    const improving = currentPos < avgPrevPos;
+    if (improving) return isGrower ? ' <span class="green">↑</span>' : ' <span class="red">↓</span>';
+    return isGrower ? ' <span class="red">↓</span>' : ' <span class="green">↑</span>';
+}
+
+/* ---------------------- РЕНДЕР ТАБЛИЦ ---------------------- */
+function renderTable(id, list, key, isGrower) {
+    const table = document.getElementById(id);
+    table.innerHTML = '<tr><th>№</th><th>Пара</th><th>Цена USD</th><th>Изменение %</th><th>Ускорение</th></tr>';
+
+    list.forEach((coin, index) => {
+        const sym = coin.symbol.toUpperCase();
+        const accel = coin._accel ?? 0;
+
+        const row = table.insertRow();
+        row.classList.add('heat-row');
+
+        if ((isGrower ? newGrowersSet : newLosersSet).has(sym)) {
+            row.classList.add('new-entry');
+        }
+
+        row.style.backgroundColor = getRowBackgroundByAcceleration(accel);
+
+        row.onclick = () => loadTimeline(coin.id, sym);
+
+        row.insertCell().textContent = index + 1;
+
+        const pairCell = row.insertCell();
+        const link = document.createElement('a');
+        link.href = `https://www.tradingview.com/chart/?symbol=BINANCE:${sym}USDT`;
+        link.textContent = sym + '/USDT' + ((isGrower ? newGrowersSet : newLosersSet).has(sym) ? ' 🆕' : '');
+        link.target = '_blank';
+        pairCell.appendChild(link);
+
+        row.insertCell().textContent = coin.current_price
+            ? coin.current_price.toFixed(8).replace(/\.?0+$/, '')
+            : '-';
+
+        const changeCell = row.insertCell();
+        const change = coin[key] ?? 0;
+        const arrow = getTrendArrow(sym, index + 1, isGrower);
+        changeCell.innerHTML = (change > 0 ? '+' : '') + change.toFixed(2) + '%' + arrow;
+        changeCell.className = change >= 0 ? 'green' : 'red';
+
+        const accelCell = row.insertCell();
+        accelCell.textContent = (accel > 0 ? '+' : '') + accel.toFixed(2) + '%';
+        accelCell.className = accel >= 0 ? 'green' : 'red';
+    });
+}
+
+/* ---------------------- ГРАФИК ---------------------- */
+async function loadTimeline(coinId, symbol) {
+    try {
+        const resp = await fetch(`https://api.coingecko.com/api/v3/coins/${coinId}/market_chart?vs_currency=usd&days=1&interval=hourly`);
+        const data = await resp.json();
+        const prices = data.prices;
+
+        const labels = prices.map(p => new Date(p[0]).toLocaleTimeString('ru-RU', {hour: '2-digit', minute: '2-digit'}));
+        const basePrice = prices[0][1];
+        const percentData = prices.map(p => ((p[1] - basePrice) / basePrice * 100).toFixed(2));
+
+        document.getElementById('chart-title').textContent = `24h timeline: ${symbol}/USDT`;
+        document.getElementById('chart-container').style.display = 'block';
+
+        if (chart) chart.destroy();
+        chart = new Chart(document.getElementById('timelineChart'), {
+            type: 'line',
+            data: { 
+                labels: labels, 
+                datasets: [{
+                    label: '% изменение',
+                    data: percentData,
+                    borderColor: '#0af',
+                    backgroundColor: 'rgba(0,170,255,0.1)',
+                    fill: true,
+                    tension: 0.3
+                }] 
+            },
+            options: {
+                responsive: true,
+                scales: {
+                    y: { ticks: { color: '#eee' }, grid: { color: '#444' } },
+                    x: { ticks: { color: '#eee' }, grid: { color: '#444' } }
+                },
+                plugins: { legend: { labels: { color: '#eee' } } }
             }
-        }
+        });
+    } catch (e) {
+        console.error(e);
+        document.getElementById('chart-title').textContent = 'Ошибка загрузки 24h данных';
+    }
+}
 
-        function renderTable(id, list, key) {
-            const table = document.getElementById(id);
-            table.innerHTML = '<tr><th>№</th><th>Пара</th><th>Цена USD</th><th>Изменение %</th></tr>';
-            list.forEach((coin, index) => {
-                const row = table.insertRow();
-                row.insertCell().textContent = index + 1;
-                row.insertCell().textContent = (coin.symbol || '').toUpperCase() + '/USDT';
-                row.insertCell().textContent = coin.current_price ? coin.current_price.toFixed(8).replace(/\.?0+$/, '') : '-';
-                const changeCell = row.insertCell();
-                const change = coin[key] || 0;
-                changeCell.textContent = (change > 0 ? '+' : '') + change.toFixed(2) + '%';
-                changeCell.className = change >= 0 ? 'green' : 'red';
-            });
-        }
+/* ---------------------- АВТООБНОВЛЕНИЕ ---------------------- */
+loadData();
+setInterval(loadData, 300000);
+</script>
 
-        loadData();
-        setInterval(loadData, 300000); // каждые 5 мин
-    </script>
 </body>
 </html>
