@@ -4,8 +4,12 @@ const path = require('node:path');
 const API_URL = 'https://api.stobix.com';
 const REPOSITORY_ROOT = path.resolve(__dirname, '..');
 const OUTPUT_DIRECTORY = path.join(REPOSITORY_ROOT, 'site');
+const REPOSITORY = process.env.GITHUB_REPOSITORY || 'bandit201390/parser';
+const [REPOSITORY_OWNER, REPOSITORY_NAME] = REPOSITORY.split('/');
+const PAGES_URL = process.env.PAGES_URL || `https://${REPOSITORY_OWNER}.github.io/${REPOSITORY_NAME}/`;
 const REQUEST_CONCURRENCY = 4;
 const RETRIES = 4;
+const FIRST_ALERT_THRESHOLD = 2;
 
 async function fetchJson(url) {
     for (let attempt = 0; attempt <= RETRIES; attempt += 1) {
@@ -110,6 +114,135 @@ async function loadMarket(symbol, startTime, endTime) {
     };
 }
 
+async function loadPreviousSnapshot() {
+    try {
+        const snapshotUrl = new URL('data/market-snapshot.json', PAGES_URL);
+        snapshotUrl.searchParams.set('v', Date.now());
+        const response = await fetch(snapshotUrl, {
+            cache: 'no-store',
+            headers: { Accept: 'application/json' },
+            signal: AbortSignal.timeout(10000)
+        });
+        if (response.status === 404) {
+            return null;
+        }
+        if (!response.ok) {
+            throw new Error(`HTTP ${response.status} while loading the previous snapshot`);
+        }
+
+        const snapshot = await response.json();
+        if (!Array.isArray(snapshot.markets)) {
+            throw new Error('The previous market snapshot has an invalid format');
+        }
+        return snapshot;
+    } catch (error) {
+        if (error.message.startsWith('HTTP ') || error.message.startsWith('The previous')) {
+            throw error;
+        }
+        throw new Error(`Unable to load the previous snapshot: ${error.message}`);
+    }
+}
+
+function getPreviousMarketLevels(previousSnapshot) {
+    const levels = new Map();
+    if (!previousSnapshot) {
+        return levels;
+    }
+
+    for (const market of previousSnapshot.markets) {
+        if (Number.isFinite(market.volatilityValue)) {
+            levels.set(market.symbol, Math.max(
+                FIRST_ALERT_THRESHOLD - 1,
+                Math.floor(market.volatilityValue)
+            ));
+        }
+    }
+    return levels;
+}
+
+function makeTelegramAlerts(markets, previousSnapshot) {
+    const previousLevels = getPreviousMarketLevels(previousSnapshot);
+    const savedLevels = previousSnapshot?.alertState || {};
+    const alertState = {};
+    const alerts = [];
+
+    for (const market of markets) {
+        const volatility = market.volatilityValue;
+        if (!Number.isFinite(volatility)) {
+            if (Number.isFinite(savedLevels[market.symbol])) {
+                alertState[market.symbol] = savedLevels[market.symbol];
+            }
+            continue;
+        }
+
+        const fallbackLevel = previousLevels.get(market.symbol)
+            ?? Math.max(FIRST_ALERT_THRESHOLD - 1, Math.floor(volatility));
+        const previousLevel = Number.isFinite(savedLevels[market.symbol])
+            ? savedLevels[market.symbol]
+            : fallbackLevel;
+        const currentLevel = Math.floor(volatility);
+
+        if (currentLevel < FIRST_ALERT_THRESHOLD) {
+            alertState[market.symbol] = FIRST_ALERT_THRESHOLD - 1;
+            continue;
+        }
+
+        alertState[market.symbol] = previousLevel;
+        for (let level = Math.max(FIRST_ALERT_THRESHOLD, previousLevel + 1); level <= currentLevel; level += 1) {
+            alerts.push({
+                symbol: market.symbol,
+                level,
+                message: `🔔 ${market.symbol.replace(/USDT$/, '/USDT')}: часовая волатильность достигла ${level}% (текущая ${volatility.toFixed(2)}%).`
+            });
+        }
+    }
+
+    return { alertState, alerts };
+}
+
+async function sendTelegramAlerts(alerts) {
+    const token = process.env.TELEGRAM_BOT_TOKEN;
+    const chatId = process.env.TELEGRAM_CHAT_ID;
+    if (!token || !chatId || alerts.length === 0) {
+        return false;
+    }
+
+    const batches = [];
+    let batch = [];
+    let batchLength = 0;
+    for (const alert of alerts) {
+        if (batch.length && batchLength + alert.message.length + 1 > 3500) {
+            batches.push(batch);
+            batch = [];
+            batchLength = 0;
+        }
+        batch.push(alert);
+        batchLength += alert.message.length + 1;
+    }
+    if (batch.length) {
+        batches.push(batch);
+    }
+
+    for (const messages of batches) {
+        const response = await fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                chat_id: chatId,
+                text: messages.map((item) => item.message).join('\n')
+            }),
+            signal: AbortSignal.timeout(15000)
+        });
+        const result = await response.json();
+        if (!response.ok || result.ok !== true) {
+            throw new Error(`Telegram rejected alert delivery: ${result.description || `HTTP ${response.status}`}`);
+        }
+    }
+
+    console.log(`Sent ${alerts.length} Telegram volatility threshold alert(s).`);
+    return true;
+}
+
 async function main() {
     const markets = await fetchJson(`${API_URL}/v1/futures/markets`);
     if (!Array.isArray(markets)) {
@@ -147,10 +280,49 @@ async function main() {
         throw new Error('Stobix returned no candle data for any market; refusing to publish an empty snapshot');
     }
 
+    const previousSnapshot = await loadPreviousSnapshot();
+    const { alertState, alerts } = makeTelegramAlerts(results, previousSnapshot);
+    const telegramConfigured = Boolean(
+        process.env.TELEGRAM_BOT_TOKEN && process.env.TELEGRAM_CHAT_ID
+    );
+    if (telegramConfigured) {
+        await sendTelegramAlerts(alerts);
+        for (const market of results) {
+            if (!Number.isFinite(market.volatilityValue)) {
+                continue;
+            }
+
+            const previousLevel = Number.isFinite(alertState[market.symbol])
+                ? alertState[market.symbol]
+                : FIRST_ALERT_THRESHOLD - 1;
+            alertState[market.symbol] = Math.max(
+                previousLevel,
+                Math.floor(market.volatilityValue)
+            );
+            if (market.volatilityValue < FIRST_ALERT_THRESHOLD) {
+                alertState[market.symbol] = FIRST_ALERT_THRESHOLD - 1;
+            }
+        }
+    } else {
+        console.log('Telegram delivery is not configured; add TELEGRAM_BOT_TOKEN and TELEGRAM_CHAT_ID repository secrets to enable alerts.');
+        for (const market of results) {
+            if (Number.isFinite(market.volatilityValue)) {
+                alertState[market.symbol] = Math.max(
+                    FIRST_ALERT_THRESHOLD - 1,
+                    Math.floor(market.volatilityValue)
+                );
+            }
+        }
+        if (alerts.length) {
+            console.log('Telegram alerts are pending configuration; add TELEGRAM_BOT_TOKEN and TELEGRAM_CHAT_ID repository secrets.');
+        }
+    }
+
     const snapshot = {
         generatedAt: endTime.toISOString(),
         periodStart: startTime.toISOString(),
         periodEnd: endTime.toISOString(),
+        alertState,
         markets: results.sort((a, b) => {
             if (a.volatilityValue === null) return 1;
             if (b.volatilityValue === null) return -1;
