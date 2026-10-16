@@ -286,7 +286,11 @@ async function main() {
         process.env.TELEGRAM_BOT_TOKEN && process.env.TELEGRAM_CHAT_ID
     );
     if (telegramConfigured) {
-        await sendTelegramAlerts(alerts);
+        if (alerts.length > 0) {
+            await sendTelegramAlerts(alerts);
+        } else {
+            console.log('Telegram alerts are configured; no new volatility thresholds were crossed.');
+        }
         for (const market of results) {
             if (!Number.isFinite(market.volatilityValue)) {
                 continue;
