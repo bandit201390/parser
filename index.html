@@ -1,290 +1,572 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="ru">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Stobix Movers + 24h Timeline + Trend + Acceleration</title>
-    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-
+    <title>Coin Monitor</title>
     <style>
-        body { font-family: Arial, sans-serif; background: #1e1e1e; color: #eee; padding: 20px; max-width: 1400px; margin: 0 auto; }
-        select, button { padding: 10px 15px; font-size: 16px; margin: 10px 5px 20px 0; background: #333; color: #eee; border: none; border-radius: 4px; cursor: pointer; }
-        button:hover { background: #444; }
-        .controls { display: flex; align-items: center; flex-wrap: wrap; gap: 10px; }
-        .tables-container { display: flex; gap: 30px; flex-wrap: wrap; }
-        .table-wrapper { flex: 1; min-width: 300px; }
-        table { width: 100%; border-collapse: collapse; background: #282828; border-radius: 8px; overflow: hidden; cursor: pointer; }
-        th { background: #333; padding: 12px; text-align: left; }
-        td { padding: 10px 12px; border-bottom: 1px solid #444; }
-        tr:hover { background: #333; }
-        .green { color: #0f9; font-weight: bold; }
-        .red { color: #f66; font-weight: bold; }
-        a { color: #0af; text-decoration: underline; }
-        h1, h2 { color: #fff; }
-        #lastupdate { color: #aaa; font-size: 14px; }
-        #chart-container { margin-top: 40px; background: #282828; padding: 20px; border-radius: 8px; }
-
-        /* Тепловая карта по ускорению */
-        .heat-row {
-            transition: background-color 0.3s ease;
+        :root {
+            --bg: #121826;
+            --panel: #1d2738;
+            --panel-strong: #243044;
+            --border: #334866;
+            --text: #eaf2ff;
+            --muted: #a9b8cf;
+            --green: #2ad39a;
+            --red: #ff6b6b;
+            --blue: #5bb8ff;
+            --amber: #f9c74f;
+            --shadow: rgba(0, 0, 0, 0.22);
         }
 
-        /* Новые входы в топ */
-        .new-entry {
-            outline: 2px solid #ffd700;
+        * { box-sizing: border-box; }
+        body {
+            margin: 0;
+            background: linear-gradient(180deg, #0d1524, var(--bg));
+            color: var(--text);
+            font-family: Arial, sans-serif;
+            padding: 24px;
         }
 
-        @media (max-width: 900px) { .tables-container { flex-direction: column; } }
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+
+        h1 {
+            margin: 0 0 12px;
+            font-size: 2rem;
+        }
+
+        .sub {
+            color: var(--muted);
+            margin-bottom: 18px;
+        }
+
+        .panel {
+            background: rgba(25, 35, 50, 0.95);
+            border: 1px solid var(--border);
+            border-radius: 14px;
+            padding: 18px;
+            box-shadow: 0 12px 26px var(--shadow);
+        }
+
+        .toolbar {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 12px;
+            align-items: end;
+            margin-bottom: 18px;
+        }
+
+        .field {
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+            min-width: 180px;
+        }
+
+        label {
+            font-size: 0.85rem;
+            color: var(--muted);
+        }
+
+        input, select, button {
+            border-radius: 10px;
+            border: 1px solid var(--border);
+            background: var(--panel-strong);
+            color: var(--text);
+            padding: 10px 12px;
+            font-size: 1rem;
+        }
+
+        input:focus, select:focus {
+            outline: 2px solid rgba(91, 184, 255, 0.56);
+            outline-offset: 1px;
+        }
+
+        button {
+            cursor: pointer;
+            font-weight: 700;
+            transition: transform 0.15s ease, filter 0.15s ease;
+        }
+
+        button:hover {
+            filter: brightness(1.09);
+            transform: translateY(-1px);
+        }
+
+        .primary {
+            background: linear-gradient(180deg, #1c7df0, #1458c5);
+            border-color: #5bb8ff;
+        }
+
+        .secondary {
+            background: #2d3b53;
+        }
+
+        .status-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 10px;
+            flex-wrap: wrap;
+            margin-top: 12px;
+        }
+
+        #status {
+            color: var(--muted);
+            font-size: 0.95rem;
+        }
+
+        .watchlist-grid {
+            display: grid;
+            grid-template-columns: minmax(220px, 1fr) minmax(220px, 1fr);
+            gap: 18px;
+            margin-top: 16px;
+        }
+
+        .table-wrap {
+            overflow: auto;
+            border-radius: 12px;
+            border: 1px solid var(--border);
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            background: rgba(20, 29, 41, 0.97);
+        }
+
+        th, td {
+            padding: 12px 14px;
+            border-bottom: 1px solid var(--border);
+            text-align: left;
+        }
+
+        th {
+            background: rgba(55, 71, 94, 0.75);
+            color: var(--text);
+            position: sticky;
+            top: 0;
+        }
+
+        tr:hover {
+            background: rgba(255, 255, 255, 0.02);
+        }
+
+        a {
+            color: var(--blue);
+            text-decoration: none;
+        }
+
+        .positive { color: var(--green); font-weight: 700; }
+        .negative { color: var(--red); font-weight: 700; }
+        .neutral { color: var(--muted); font-weight: 700; }
+
+        .alerts {
+            margin-top: 18px;
+            background: rgba(20, 29, 41, 0.97);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 14px;
+        }
+
+        .alerts h3 {
+            margin: 0 0 12px;
+        }
+
+        .alerts-list {
+            list-style: none;
+            margin: 0;
+            padding: 0;
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            max-height: 220px;
+            overflow: auto;
+        }
+
+        .alerts-list li {
+            background: rgba(62, 81, 109, 0.32);
+            border: 1px solid var(--border);
+            padding: 10px 12px;
+            border-radius: 8px;
+            color: var(--text);
+        }
+
+        @media (max-width: 820px) {
+            .watchlist-grid {
+                grid-template-columns: 1fr;
+            }
+        }
     </style>
 </head>
-
 <body>
-    <h1>Stobix USDT Movers + Acceleration + New Entries + Heatmap</h1>
+    <div class="container">
+        <h1>Coin Monitor</h1>
+        <div class="sub">Мониторинг волатильности всех фьючерсных пар Stobix за скользящий последний час.</div>
 
-    <div class="controls">
-        <label for="timeframe">Таймфрейм:</label>
-        <select id="timeframe">
-            <option value="1h">1 час</option>
-            <option value="24h">24 часа</option>
-        </select>
-        <button onclick="loadData()">Обновить сейчас</button>
-        <span id="lastupdate">-</span>
-    </div>
+        <div class="panel">
+            <div class="toolbar">
+                <div class="field">
+                    <label for="watchlist">Пары Stobix Futures</label>
+                    <input id="watchlist" value="Загрузка списка пар…" readonly />
+                </div>
 
-    <div class="tables-container">
-        <div class="table-wrapper">
-            <h2>Топ-20 Growers</h2>
-            <table id="growers"><tr><th>№</th><th>Пара</th><th>Цена USD</th><th>Изменение %</th><th>Ускорение</th></tr></table>
+                <div class="field">
+                    <label for="threshold">Порог волатильности (%)</label>
+                    <input id="threshold" type="number" min="0.1" step="0.1" value="3" />
+                </div>
+
+                <div class="field">
+                    <label>Период расчёта</label>
+                    <div>Последние 60 минут</div>
+                </div>
+
+                <button class="primary" id="refreshBtn" type="button">Обновить</button>
+                <button class="secondary" id="toggleAutoBtn" type="button">Запустить автообновление</button>
+            </div>
+
+            <div class="status-row">
+                <div id="status">Ожидание обновления…</div>
+                <div id="lastupdate">-</div>
+            </div>
         </div>
-        <div class="table-wrapper">
-            <h2>Топ-20 Losers</h2>
-            <table id="losers"><tr><th>№</th><th>Пара</th><th>Цена USD</th><th>Изменение %</th><th>Ускорение</th></tr></table>
+
+        <div class="watchlist-grid">
+            <div class="panel">
+                <h2>Мониторинг</h2>
+                <div class="table-wrap">
+                    <table id="watchTable">
+                        <thead>
+                            <tr>
+                                <th>Пара</th>
+                                <th>Цена</th>
+                                <th>Волатильность</th>
+                            </tr>
+                        </thead>
+                        <tbody></tbody>
+                    </table>
+                </div>
+            </div>
+
+            <div class="panel">
+                <h2>Оповещения</h2>
+                <div class="alerts">
+                    <ul id="alertsList" class="alerts-list">
+                        <li>Пока нет оповещений.</li>
+                    </ul>
+                </div>
+            </div>
         </div>
+
     </div>
 
-    <div id="chart-container" style="display:none;">
-        <h2 id="chart-title">24h timeline: выберите пару</h2>
-        <canvas id="timelineChart"></canvas>
-    </div>
+    <script>
+        const STOBIX_FUTURES_URL = '/api/futures/markets';
+        const STOBIX_CANDLES_URL = '/api/rates/candles';
+        const state = {
+            threshold: 3,
+            autoRefresh: false,
+            intervalId: null,
+            previousSnapshot: {},
+            pairs: [],
+            isLoading: false
+        };
 
-<script>
-/* ---------------------- ПАРЫ ---------------------- */
-const pairs = ["ZENUSDT","ZECUSDT","XRPUSDT","XPLUSDT","XLMUSDT","WLFIOUSDT","WLDUSDT","WIFUSDT","UNIUSDT","TWTUSDT","TURBOUSDT","TRXUSDT","TRUMPUSDT","TONUSDT","TIAUSDT","TAOUSDT","SUIUSDT","STXUSDT","STRKUSDT","SOMIUSDT","SOLUSDT","SNXUSDT","SHIBUSDT","SEIUSDT","SANDUSDT","SUSDT","RENDERUSDT","RAYUSDT","PYTHUSDT","PUMPUSDT","POLUSDT","PNUTUSDT","PEPEUSDT","PENGUUSDT","PENDLEUSDT","OPUSDT","ONDOUSDT","NEARUSDT","MONUSDT","MNTUSDT","MASKUSDT","LTCUSDT","LPTUSDT","LISTAUSDT","LINKUSDT","LINEAUSDT","LDOUSDT","KAITOUSDT","JUPUSDT","IPUSDT","IOTAUSDT","INJUSDT","IMXUSDT","ICPUSDT","HYPEUSDT","HBARUSDT","GRTUSDT","GALAUSDT","FORMUSDT","FLOKIUSDT","FILUSDT","FFUSDT","FETUSDT","EULUSDT","ETHFIUSDT","ETHUSDT","ENSOUSDT","ENSUSDT","ENAUSDT","EDENUSDT","DOTUSDT","DOGEUSDT","DASHUSDT","CRVUSDT","COREUSDT","CAKEUSDT","BTCUSDT","BONKUSDT","BNBUSDT","BCHUSDT","AVNTUSDT","AVAXUSDT","ATOMUSDT","ASTERUSDT","ARBUSDT","APTUSDT","APEUSDT","ALGOUSDT","ADAUSDT","AAVEUSDT","0GUSDT"];
-
-let chart = null;
-let allCoins = [];
-const historyDepth = 5;
-
-let previousTops = { growers: [], losers: [] };
-let previousChanges = { "1h": {}, "24h": {} };
-
-let newGrowersSet = new Set();
-let newLosersSet = new Set();
-
-/* ---------------------- ЗАГРУЗКА ИСТОРИИ ---------------------- */
-const stored = localStorage.getItem('stobixHistoryTops');
-if (stored) {
-    previousTops = JSON.parse(stored);
-    previousTops.growers = previousTops.growers.slice(-historyDepth);
-    previousTops.losers = previousTops.losers.slice(-historyDepth);
-}
-
-const storedChanges = localStorage.getItem('stobixPrevChanges');
-if (storedChanges) {
-    try { previousChanges = JSON.parse(storedChanges); }
-    catch { previousChanges = { "1h": {}, "24h": {} }; }
-}
-
-if (Notification.permission === "default") Notification.requestPermission();
-
-/* ---------------------- ГЛАВНАЯ ФУНКЦИЯ ---------------------- */
-async function loadData() {
-    const tf = document.getElementById('timeframe').value;
-    const url = `https://api.coingecko.com/api/v3/coins/markets?vs_currency=usd&order=market_cap_desc&per_page=250&page=1&price_change_percentage=1h%2C24h`;
-
-    try {
-        const response = await fetch(url);
-        const data = await response.json();
-
-        allCoins = data.filter(coin => pairs.includes((coin.symbol || '').toUpperCase() + 'USDT'));
-
-        const changeKey = tf === '1h'
-            ? 'price_change_percentage_1h_in_currency'
-            : 'price_change_percentage_24h_in_currency';
-
-        /* ---------- УСКОРЕНИЕ ---------- */
-        allCoins.forEach(coin => {
-            const sym = coin.symbol.toUpperCase();
-            const current = coin[changeKey] ?? 0;
-            const prev = previousChanges[tf][sym] ?? null;
-            coin._accel = prev !== null ? current - prev : 0;
-            previousChanges[tf][sym] = current;
-        });
-
-        localStorage.setItem('stobixPrevChanges', JSON.stringify(previousChanges));
-
-        /* ---------- СОРТИРОВКА ---------- */
-        const sorted = allCoins.sort((a, b) => (b[changeKey] ?? 0) - (a[changeKey] ?? 0));
-
-        const growers = sorted.slice(0, 20);
-        const losers = sorted.slice(-20).reverse();
-
-        /* ---------- НОВЫЕ ВХОДЫ ---------- */
-        const prevGrowers = (previousTops.growers.at(-1) || []).map(s => s.toUpperCase());
-        const prevLosers = (previousTops.losers.at(-1) || []).map(s => s.toUpperCase());
-
-        newGrowersSet = new Set(growers.map(c => c.symbol.toUpperCase()).filter(s => !prevGrowers.includes(s)));
-        newLosersSet = new Set(losers.map(c => c.symbol.toUpperCase()).filter(s => !prevLosers.includes(s)));
-
-        /* ---------- ОБНОВЛЯЕМ ИСТОРИЮ ---------- */
-        previousTops.growers.push(growers.map(c => c.symbol.toUpperCase()));
-        previousTops.losers.push(losers.map(c => c.symbol.toUpperCase()));
-        previousTops.growers = previousTops.growers.slice(-historyDepth);
-        previousTops.losers = previousTops.losers.slice(-historyDepth);
-
-        localStorage.setItem('stobixHistoryTops', JSON.stringify(previousTops));
-
-        /* ---------- РЕНДЕР ---------- */
-        renderTable('growers', growers, changeKey, true);
-        renderTable('losers', losers, changeKey, false);
-
-        document.getElementById('lastupdate').innerText = 'Обновлено: ' + new Date().toLocaleString();
-
-    } catch (e) {
-        console.error(e);
-        document.getElementById('lastupdate').innerText = 'Ошибка загрузки данных';
-    }
-}
-
-/* ---------------------- ТЕПЛОВАЯ КАРТА ---------------------- */
-function getRowBackgroundByAcceleration(accel) {
-    const cap = 3;
-    const value = Math.max(-cap, Math.min(cap, accel));
-    const ratio = Math.abs(value) / cap;
-
-    if (ratio < 0.1) return 'transparent';
-
-    const alpha = 0.15 + 0.35 * ratio;
-
-    return value > 0
-        ? `rgba(0, 200, 0, ${alpha})`
-        : `rgba(220, 0, 0, ${alpha})`;
-}
-
-/* ---------------------- ТРЕНД СТРЕЛКИ ---------------------- */
-function getTrendArrow(symbolUpper, currentPos, isGrower) {
-    const historyList = previousTops[isGrower ? 'growers' : 'losers'];
-    if (historyList.length === 0) return ' 🆕';
-
-    let positions = [];
-    historyList.forEach(list => {
-        const pos = list.indexOf(symbolUpper);
-        if (pos !== -1) positions.push(pos + 1);
-    });
-
-    if (positions.length === 0) return ' 🆕';
-
-    const avgPrevPos = positions.reduce((a, b) => a + b, 0) / positions.length;
-
-    if (Math.abs(currentPos - avgPrevPos) < 1) return '';
-
-    const improving = currentPos < avgPrevPos;
-    if (improving) return isGrower ? ' <span class="green">↑</span>' : ' <span class="red">↓</span>';
-    return isGrower ? ' <span class="red">↓</span>' : ' <span class="green">↑</span>';
-}
-
-/* ---------------------- РЕНДЕР ТАБЛИЦ ---------------------- */
-function renderTable(id, list, key, isGrower) {
-    const table = document.getElementById(id);
-    table.innerHTML = '<tr><th>№</th><th>Пара</th><th>Цена USD</th><th>Изменение %</th><th>Ускорение</th></tr>';
-
-    list.forEach((coin, index) => {
-        const sym = coin.symbol.toUpperCase();
-        const accel = coin._accel ?? 0;
-
-        const row = table.insertRow();
-        row.classList.add('heat-row');
-
-        if ((isGrower ? newGrowersSet : newLosersSet).has(sym)) {
-            row.classList.add('new-entry');
+        function normalizeSymbol(raw) {
+            const cleaned = String(raw || '').trim();
+            if (!cleaned) return '';
+            const sym = cleaned.replace(/[^A-Za-z0-9]/g, '').toUpperCase();
+            return sym.endsWith('USDT') ? sym : sym + 'USDT';
         }
 
-        row.style.backgroundColor = getRowBackgroundByAcceleration(accel);
+        function formatPair(symbol) {
+            return `${symbol.slice(0, -4)}/USDT`;
+        }
 
-        row.onclick = () => loadTimeline(coin.id, sym);
+        function calculateHourlyVolatility(candles) {
+            if (!candles.length) return null;
 
-        row.insertCell().textContent = index + 1;
+            const referencePrice = candles[0].open;
+            if (!(referencePrice > 0)) return null;
 
-        const pairCell = row.insertCell();
-        const link = document.createElement('a');
-        link.href = `https://www.tradingview.com/chart/?symbol=BINANCE:${sym}USDT`;
-        link.textContent = sym + '/USDT' + ((isGrower ? newGrowersSet : newLosersSet).has(sym) ? ' 🆕' : '');
-        link.target = '_blank';
-        pairCell.appendChild(link);
+            const high = Math.max(...candles.map((candle) => candle.high));
+            const low = Math.min(...candles.map((candle) => candle.low));
+            return ((high - low) / referencePrice) * 100;
+        }
 
-        row.insertCell().textContent = coin.current_price
-            ? coin.current_price.toFixed(8).replace(/\.?0+$/, '')
-            : '-';
+        function setStatus(text, isError = false) {
+            const el = document.getElementById('status');
+            el.textContent = text;
+            el.style.color = isError ? '#ff6b6b' : '#a9b8cf';
+        }
 
-        const changeCell = row.insertCell();
-        const change = coin[key] ?? 0;
-        const arrow = getTrendArrow(sym, index + 1, isGrower);
-        changeCell.innerHTML = (change > 0 ? '+' : '') + change.toFixed(2) + '%' + arrow;
-        changeCell.className = change >= 0 ? 'green' : 'red';
-
-        const accelCell = row.insertCell();
-        accelCell.textContent = (accel > 0 ? '+' : '') + accel.toFixed(2) + '%';
-        accelCell.className = accel >= 0 ? 'green' : 'red';
-    });
-}
-
-/* ---------------------- ГРАФИК ---------------------- */
-async function loadTimeline(coinId, symbol) {
-    try {
-        const resp = await fetch(`https://api.coingecko.com/api/v3/coins/${coinId}/market_chart?vs_currency=usd&days=1&interval=hourly`);
-        const data = await resp.json();
-        const prices = data.prices;
-
-        const labels = prices.map(p => new Date(p[0]).toLocaleTimeString('ru-RU', {hour: '2-digit', minute: '2-digit'}));
-        const basePrice = prices[0][1];
-        const percentData = prices.map(p => ((p[1] - basePrice) / basePrice * 100).toFixed(2));
-
-        document.getElementById('chart-title').textContent = `24h timeline: ${symbol}/USDT`;
-        document.getElementById('chart-container').style.display = 'block';
-
-        if (chart) chart.destroy();
-        chart = new Chart(document.getElementById('timelineChart'), {
-            type: 'line',
-            data: { 
-                labels: labels, 
-                datasets: [{
-                    label: '% изменение',
-                    data: percentData,
-                    borderColor: '#0af',
-                    backgroundColor: 'rgba(0,170,255,0.1)',
-                    fill: true,
-                    tension: 0.3
-                }] 
-            },
-            options: {
-                responsive: true,
-                scales: {
-                    y: { ticks: { color: '#eee' }, grid: { color: '#444' } },
-                    x: { ticks: { color: '#eee' }, grid: { color: '#444' } }
-                },
-                plugins: { legend: { labels: { color: '#eee' } } }
+        function addAlert(message) {
+            const list = document.getElementById('alertsList');
+            if (list.firstChild && list.firstChild.textContent.includes('Пока нет')) {
+                list.innerHTML = '';
             }
-        });
-    } catch (e) {
-        console.error(e);
-        document.getElementById('chart-title').textContent = 'Ошибка загрузки 24h данных';
-    }
-}
+            const li = document.createElement('li');
+            li.textContent = `${new Date().toLocaleTimeString('ru-RU')} — ${message}`;
+            list.prepend(li);
+            while (list.children.length > 12) {
+                list.removeChild(list.lastChild);
+            }
+        }
 
-/* ---------------------- АВТООБНОВЛЕНИЕ ---------------------- */
-loadData();
-setInterval(loadData, 300000);
-</script>
+        function notifyBrowser(title, body) {
+            if (!('Notification' in window)) return;
+            if (Notification.permission === 'granted') {
+                new Notification(title, { body });
+            }
+        }
 
+        async function loadStobixPairs() {
+            const data = await fetchJsonWithRetry(STOBIX_FUTURES_URL);
+            if (!Array.isArray(data)) {
+                throw new Error('Stobix вернул некорректный список фьючерсных пар');
+            }
+
+            const pairs = [...new Set(data
+                .map((item) => normalizeSymbol(item && item.symbol))
+                .filter((pair) => pair.endsWith('USDT')))];
+            if (!pairs.length) {
+                throw new Error('Stobix не вернул ни одной пары USDT');
+            }
+
+            state.pairs = pairs;
+            document.getElementById('watchlist').value = pairs
+                .map((pair) => pair.replace(/USDT$/, '/USDT'))
+                .join(', ');
+            return pairs;
+        }
+
+        async function fetchJsonWithRetry(url, retries = 3) {
+            let attempt = 0;
+
+            while (attempt <= retries) {
+                try {
+                    const response = await fetch(url, { cache: 'no-store' });
+                    if (response.status === 429 && attempt < retries) {
+                        const delay = 1000 * (attempt + 1);
+                        await new Promise((resolve) => setTimeout(resolve, delay));
+                        attempt += 1;
+                        continue;
+                    }
+
+                    if (!response.ok) {
+                        throw new Error(`HTTP ${response.status}`);
+                    }
+
+                    return await response.json();
+                } catch (error) {
+                    if (attempt >= retries) {
+                        throw error;
+                    }
+                    attempt += 1;
+                    const delay = 1000 * (attempt + 1);
+                    await new Promise((resolve) => setTimeout(resolve, delay));
+                }
+            }
+
+            throw new Error('Не удалось получить данные после нескольких попыток');
+        }
+
+        async function loadHourlyCandles(symbol, startTime, endTime) {
+            const params = new URLSearchParams({
+                startTime: new Date(startTime).toISOString(),
+                endTime: new Date(endTime).toISOString(),
+                symbol: `${symbol.slice(0, -4)}/USDT`,
+                interval: '1m'
+            });
+            const payload = await fetchJsonWithRetry(`${STOBIX_CANDLES_URL}?${params}`);
+            if (payload.s !== 'ok' || !Array.isArray(payload.t)) {
+                throw new Error(`Stobix не вернул минутные свечи для ${symbol}`);
+            }
+
+            const candles = payload.t.map((timestamp, index) => ({
+                time: Number(timestamp) * 1000,
+                open: Number(payload.o[index]),
+                high: Number(payload.h[index]),
+                low: Number(payload.l[index]),
+                close: Number(payload.c[index])
+            })).filter((candle) =>
+                candle.time >= startTime - 60_000 &&
+                candle.time <= endTime &&
+                Number.isFinite(candle.open) &&
+                Number.isFinite(candle.high) &&
+                Number.isFinite(candle.low) &&
+                Number.isFinite(candle.close)
+            );
+
+            if (!candles.length) {
+                throw new Error(`Нет часовых данных для ${symbol}`);
+            }
+            return candles;
+        }
+
+        async function mapWithConcurrency(items, concurrency, mapper) {
+            const results = new Array(items.length);
+            let nextIndex = 0;
+            const workers = Array.from(
+                { length: Math.min(concurrency, items.length) },
+                async () => {
+                    while (nextIndex < items.length) {
+                        const index = nextIndex++;
+                        results[index] = await mapper(items[index]);
+                    }
+                }
+            );
+            await Promise.all(workers);
+            return results;
+        }
+
+        function formatPrice(price) {
+            if (price === null || price === undefined || Number.isNaN(Number(price))) return '-';
+            return Number(price).toLocaleString('ru-RU', { maximumFractionDigits: 8 });
+        }
+
+        function renderTable(rows) {
+            const tbody = document.querySelector('#watchTable tbody');
+            tbody.innerHTML = '';
+
+            rows.forEach((coin) => {
+                const tr = document.createElement('tr');
+
+                const pair = document.createElement('td');
+                const label = document.createElement('a');
+                label.href = `https://app.stobix.com/futures/${formatPair(coin.symbol)}`;
+                label.target = '_blank';
+                label.rel = 'noopener';
+                label.textContent = formatPair(coin.symbol);
+                pair.appendChild(label);
+
+                const price = document.createElement('td');
+                price.textContent = formatPrice(coin.current_price);
+
+                const volatility = document.createElement('td');
+                const value = coin.volatilityValue;
+                volatility.textContent = value === null ? 'Нет данных' : `${value.toFixed(2)}%`;
+                volatility.className = value === null
+                    ? 'neutral'
+                    : value >= state.threshold
+                        ? 'positive'
+                        : 'neutral';
+
+                tr.appendChild(pair);
+                tr.appendChild(price);
+                tr.appendChild(volatility);
+                tbody.appendChild(tr);
+            });
+        }
+
+        function maybeAlertOnThreshold(coin, value) {
+            const previous = state.previousSnapshot[coin.symbol];
+            const threshold = state.threshold;
+            if (!Number.isFinite(value)) return;
+
+            if (previous === undefined) {
+                state.previousSnapshot[coin.symbol] = value;
+                if (value >= threshold) {
+                    const msg = `${formatPair(coin.symbol)} волатильность ${value.toFixed(2)}% выше порога ${threshold.toFixed(1)}%`;
+                    addAlert(msg);
+                    notifyBrowser('Coin Monitor', msg);
+                }
+                return;
+            }
+
+            const crossedUp = previous < threshold && value >= threshold;
+
+            if (crossedUp) {
+                const msg = `${formatPair(coin.symbol)} волатильность ${value.toFixed(2)}% достигла порога ${threshold.toFixed(1)}%`;
+                addAlert(msg);
+                notifyBrowser('Coin Monitor', msg);
+            }
+
+            state.previousSnapshot[coin.symbol] = value;
+        }
+
+        async function loadData() {
+            if (state.isLoading) return;
+            state.isLoading = true;
+            state.threshold = Math.max(0, Number(document.getElementById('threshold').value) || 0);
+            setStatus('Загрузка минутных свечей Stobix…');
+
+            try {
+                const symbols = state.pairs.length ? state.pairs : await loadStobixPairs();
+                const endTime = Date.now();
+                const startTime = endTime - 60 * 60 * 1000;
+                const results = await mapWithConcurrency(symbols, 6, async (symbol) => {
+                    try {
+                        const candles = await loadHourlyCandles(symbol, startTime, endTime);
+                        return {
+                            symbol,
+                            current_price: candles[candles.length - 1].close,
+                            volatilityValue: calculateHourlyVolatility(candles)
+                        };
+                    } catch (error) {
+                        console.warn(`Failed to load hourly volatility for ${symbol}:`, error);
+                        return { symbol, candles: [], current_price: null, volatilityValue: null };
+                    }
+                });
+
+                const rows = results.sort((a, b) => {
+                    if (a.volatilityValue === null) return 1;
+                    if (b.volatilityValue === null) return -1;
+                    return b.volatilityValue - a.volatilityValue;
+                });
+                renderTable(rows);
+
+                rows.forEach((coin) => {
+                    if (coin.volatilityValue !== null) {
+                        maybeAlertOnThreshold(coin, coin.volatilityValue);
+                    }
+                });
+
+                document.getElementById('lastupdate').textContent = `Обновлено: ${new Date().toLocaleString('ru-RU')}`;
+                const available = rows.filter((coin) => coin.volatilityValue !== null).length;
+                const missing = rows.length - available;
+                setStatus(
+                    missing
+                        ? `Волатильность за последний час: ${available}/${rows.length} пар; для ${missing} нет данных.`
+                        : `Волатильность за последний час обновлена для всех ${rows.length} пар Stobix.`
+                );
+            } catch (error) {
+                console.error(error);
+                setStatus(`Ошибка загрузки: ${error.message}`, true);
+                document.getElementById('lastupdate').textContent = 'Ошибка загрузки данных';
+            } finally {
+                state.isLoading = false;
+            }
+        }
+
+        function toggleAutoRefresh() {
+            if (state.autoRefresh) {
+                clearInterval(state.intervalId);
+                state.intervalId = null;
+                state.autoRefresh = false;
+                document.getElementById('toggleAutoBtn').textContent = 'Запустить автообновление';
+                setStatus('Автообновление остановлено.');
+                return;
+            }
+
+            state.autoRefresh = true;
+            document.getElementById('toggleAutoBtn').textContent = 'Остановить автообновление';
+            state.intervalId = setInterval(() => loadData(), 60000);
+            setStatus('Автообновление запущено.');
+            loadData();
+        }
+
+        document.getElementById('refreshBtn').addEventListener('click', loadData);
+        document.getElementById('toggleAutoBtn').addEventListener('click', toggleAutoRefresh);
+
+        if (Notification.permission === 'default') {
+            Notification.requestPermission().catch(() => {});
+        }
+
+        loadData();
+    </script>
 </body>
 </html>
