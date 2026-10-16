@@ -1,0 +1,11 @@
+{
+  "name": "stobix-volatility-monitor",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "test": "node --test"
+  },
+  "dependencies": {
+    "socket.io-client": "^4.8.1"
+  }
+}

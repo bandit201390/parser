@@ -1,5 +1,6 @@
 const fs = require('node:fs/promises');
 const path = require('node:path');
+const { advanceAlertState, calculateVolatility } = require('./monitor-core');
 
 const API_URL = 'https://api.stobix.com';
 const REPOSITORY_ROOT = path.resolve(__dirname, '..');
@@ -63,16 +64,6 @@ async function mapWithConcurrency(items, concurrency, mapper) {
 
     await Promise.all(workers);
     return results;
-}
-
-function calculateVolatility(candles) {
-    if (candles.length === 0 || candles[0].open <= 0) {
-        return null;
-    }
-
-    const high = Math.max(...candles.map((candle) => candle.high));
-    const low = Math.min(...candles.map((candle) => candle.low));
-    return ((high - low) / candles[0].open) * 100;
 }
 
 async function loadMarket(symbol, startTime, endTime) {
@@ -160,44 +151,16 @@ function getPreviousMarketLevels(previousSnapshot) {
     return levels;
 }
 
-function makeTelegramAlerts(markets, previousSnapshot) {
+function makeFallbackAlertLevels(markets, previousSnapshot) {
     const previousLevels = getPreviousMarketLevels(previousSnapshot);
-    const savedLevels = previousSnapshot?.alertState || {};
-    const alertState = {};
-    const alerts = [];
-
+    const levels = { ...(previousSnapshot?.alertState || {}) };
     for (const market of markets) {
-        const volatility = market.volatilityValue;
-        if (!Number.isFinite(volatility)) {
-            if (Number.isFinite(savedLevels[market.symbol])) {
-                alertState[market.symbol] = savedLevels[market.symbol];
-            }
-            continue;
-        }
-
-        const fallbackLevel = previousLevels.get(market.symbol)
-            ?? Math.max(FIRST_ALERT_THRESHOLD - 1, Math.floor(volatility));
-        const previousLevel = Number.isFinite(savedLevels[market.symbol])
-            ? savedLevels[market.symbol]
-            : fallbackLevel;
-        const currentLevel = Math.floor(volatility);
-
-        if (currentLevel < FIRST_ALERT_THRESHOLD) {
-            alertState[market.symbol] = FIRST_ALERT_THRESHOLD - 1;
-            continue;
-        }
-
-        alertState[market.symbol] = previousLevel;
-        for (let level = Math.max(FIRST_ALERT_THRESHOLD, previousLevel + 1); level <= currentLevel; level += 1) {
-            alerts.push({
-                symbol: market.symbol,
-                level,
-                message: `🔔 ${market.symbol.replace(/USDT$/, '/USDT')}: часовая волатильность достигла ${level}% (текущая ${volatility.toFixed(2)}%).`
-            });
+        if (!Number.isFinite(levels[market.symbol])) {
+            levels[market.symbol] = previousLevels.get(market.symbol)
+                ?? Math.max(FIRST_ALERT_THRESHOLD - 1, Math.floor(market.volatilityValue || 0));
         }
     }
-
-    return { alertState, alerts };
+    return levels;
 }
 
 async function sendTelegramAlerts(alerts) {
@@ -281,7 +244,13 @@ async function main() {
     }
 
     const previousSnapshot = await loadPreviousSnapshot();
-    const { alertState, alerts } = makeTelegramAlerts(results, previousSnapshot);
+    const previousLevels = makeFallbackAlertLevels(results, previousSnapshot);
+    const { alertState, alerts } = advanceAlertState(
+        results,
+        previousSnapshot?.alertState || {},
+        previousLevels,
+        FIRST_ALERT_THRESHOLD
+    );
     const telegramConfigured = Boolean(
         process.env.TELEGRAM_BOT_TOKEN && process.env.TELEGRAM_CHAT_ID
     );
@@ -291,32 +260,8 @@ async function main() {
         } else {
             console.log('Telegram alerts are configured; no new volatility thresholds were crossed.');
         }
-        for (const market of results) {
-            if (!Number.isFinite(market.volatilityValue)) {
-                continue;
-            }
-
-            const previousLevel = Number.isFinite(alertState[market.symbol])
-                ? alertState[market.symbol]
-                : FIRST_ALERT_THRESHOLD - 1;
-            alertState[market.symbol] = Math.max(
-                previousLevel,
-                Math.floor(market.volatilityValue)
-            );
-            if (market.volatilityValue < FIRST_ALERT_THRESHOLD) {
-                alertState[market.symbol] = FIRST_ALERT_THRESHOLD - 1;
-            }
-        }
     } else {
         console.log('Telegram delivery is not configured; add TELEGRAM_BOT_TOKEN and TELEGRAM_CHAT_ID repository secrets to enable alerts.');
-        for (const market of results) {
-            if (Number.isFinite(market.volatilityValue)) {
-                alertState[market.symbol] = Math.max(
-                    FIRST_ALERT_THRESHOLD - 1,
-                    Math.floor(market.volatilityValue)
-                );
-            }
-        }
         if (alerts.length) {
             console.log('Telegram alerts are pending configuration; add TELEGRAM_BOT_TOKEN and TELEGRAM_CHAT_ID repository secrets.');
         }

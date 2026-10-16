@@ -1,0 +1,47 @@
+name: Monitor Stobix volatility continuously
+
+on:
+  workflow_dispatch:
+    inputs:
+      carry_state:
+        description: Internal alert state passed between monitor runs; leave unchanged.
+        required: false
+        type: string
+        default: '{}'
+
+permissions:
+  actions: write
+  contents: read
+
+concurrency:
+  group: stobix-minute-monitor
+  cancel-in-progress: false
+
+jobs:
+  monitor:
+    runs-on: ubuntu-latest
+    timeout-minutes: 350
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run monitor tests
+        run: npm test
+
+      - name: Monitor Stobix and Telegram thresholds
+        env:
+          CARRY_STATE: ${{ inputs.carry_state }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          MONITOR_DURATION_MS: '20400000'
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+        run: node scripts/monitor.js
