@@ -264,37 +264,16 @@
     </div>
 
     <script>
-        const STOBIX_FUTURES_URL = '/api/futures/markets';
-        const STOBIX_CANDLES_URL = '/api/rates/candles';
         const state = {
             threshold: 3,
             autoRefresh: false,
             intervalId: null,
             previousSnapshot: {},
-            pairs: [],
             isLoading: false
         };
 
-        function normalizeSymbol(raw) {
-            const cleaned = String(raw || '').trim();
-            if (!cleaned) return '';
-            const sym = cleaned.replace(/[^A-Za-z0-9]/g, '').toUpperCase();
-            return sym.endsWith('USDT') ? sym : sym + 'USDT';
-        }
-
         function formatPair(symbol) {
             return `${symbol.slice(0, -4)}/USDT`;
-        }
-
-        function calculateHourlyVolatility(candles) {
-            if (!candles.length) return null;
-
-            const referencePrice = candles[0].open;
-            if (!(referencePrice > 0)) return null;
-
-            const high = Math.max(...candles.map((candle) => candle.high));
-            const low = Math.min(...candles.map((candle) => candle.low));
-            return ((high - low) / referencePrice) * 100;
         }
 
         function setStatus(text, isError = false) {
@@ -321,106 +300,6 @@
             if (Notification.permission === 'granted') {
                 new Notification(title, { body });
             }
-        }
-
-        async function loadStobixPairs() {
-            const data = await fetchJsonWithRetry(STOBIX_FUTURES_URL);
-            if (!Array.isArray(data)) {
-                throw new Error('Stobix вернул некорректный список фьючерсных пар');
-            }
-
-            const pairs = [...new Set(data
-                .map((item) => normalizeSymbol(item && item.symbol))
-                .filter((pair) => pair.endsWith('USDT')))];
-            if (!pairs.length) {
-                throw new Error('Stobix не вернул ни одной пары USDT');
-            }
-
-            state.pairs = pairs;
-            document.getElementById('watchlist').value = pairs
-                .map((pair) => pair.replace(/USDT$/, '/USDT'))
-                .join(', ');
-            return pairs;
-        }
-
-        async function fetchJsonWithRetry(url, retries = 3) {
-            let attempt = 0;
-
-            while (attempt <= retries) {
-                try {
-                    const response = await fetch(url, { cache: 'no-store' });
-                    if (response.status === 429 && attempt < retries) {
-                        const delay = 1000 * (attempt + 1);
-                        await new Promise((resolve) => setTimeout(resolve, delay));
-                        attempt += 1;
-                        continue;
-                    }
-
-                    if (!response.ok) {
-                        throw new Error(`HTTP ${response.status}`);
-                    }
-
-                    return await response.json();
-                } catch (error) {
-                    if (attempt >= retries) {
-                        throw error;
-                    }
-                    attempt += 1;
-                    const delay = 1000 * (attempt + 1);
-                    await new Promise((resolve) => setTimeout(resolve, delay));
-                }
-            }
-
-            throw new Error('Не удалось получить данные после нескольких попыток');
-        }
-
-        async function loadHourlyCandles(symbol, startTime, endTime) {
-            const params = new URLSearchParams({
-                startTime: new Date(startTime).toISOString(),
-                endTime: new Date(endTime).toISOString(),
-                symbol: `${symbol.slice(0, -4)}/USDT`,
-                interval: '1m'
-            });
-            const payload = await fetchJsonWithRetry(`${STOBIX_CANDLES_URL}?${params}`);
-            if (payload.s !== 'ok' || !Array.isArray(payload.t)) {
-                throw new Error(`Stobix не вернул минутные свечи для ${symbol}`);
-            }
-
-            const candles = payload.t.map((timestamp, index) => ({
-                time: Number(timestamp) * 1000,
-                open: Number(payload.o[index]),
-                high: Number(payload.h[index]),
-                low: Number(payload.l[index]),
-                close: Number(payload.c[index])
-            })).filter((candle) =>
-                candle.time >= startTime - 60_000 &&
-                candle.time <= endTime &&
-                Number.isFinite(candle.open) &&
-                Number.isFinite(candle.high) &&
-                Number.isFinite(candle.low) &&
-                Number.isFinite(candle.close)
-            );
-
-            if (!candles.length) {
-                throw new Error(`Нет часовых данных для ${symbol}`);
-            }
-            return candles;
-        }
-
-        async function mapWithConcurrency(items, concurrency, mapper) {
-            const results = new Array(items.length);
-            let nextIndex = 0;
-            const workers = Array.from(
-                { length: Math.min(concurrency, items.length) },
-                async () => {
-                    while (nextIndex < items.length) {
-                        const index = nextIndex++;
-                        results[index] = await mapper(items[index]);
-                    }
-                }
-            );
-            await Promise.all(workers);
-            return results;
         }
 
         function formatPrice(price) {
@@ -492,31 +371,40 @@
             if (state.isLoading) return;
             state.isLoading = true;
             state.threshold = Math.max(0, Number(document.getElementById('threshold').value) || 0);
-            setStatus('Загрузка минутных свечей Stobix…');
+            setStatus('Загрузка последнего снимка Stobix…');
 
             try {
-                const symbols = state.pairs.length ? state.pairs : await loadStobixPairs();
-                const endTime = Date.now();
-                const startTime = endTime - 60 * 60 * 1000;
-                const results = await mapWithConcurrency(symbols, 6, async (symbol) => {
-                    try {
-                        const candles = await loadHourlyCandles(symbol, startTime, endTime);
-                        return {
-                            symbol,
-                            current_price: candles[candles.length - 1].close,
-                            volatilityValue: calculateHourlyVolatility(candles)
-                        };
-                    } catch (error) {
-                        console.warn(`Failed to load hourly volatility for ${symbol}:`, error);
-                        return { symbol, candles: [], current_price: null, volatilityValue: null };
-                    }
-                });
+                const snapshotUrl = new URL('data/market-snapshot.json', window.location.href);
+                snapshotUrl.searchParams.set('v', Date.now());
+                const response = await fetch(snapshotUrl, { cache: 'no-store' });
+                if (!response.ok) {
+                    throw new Error(
+                        response.status === 404
+                            ? 'Снимок данных ещё не опубликован GitHub Actions. Запустите workflow обновления Stobix.'
+                            : `HTTP ${response.status}`
+                    );
+                }
 
-                const rows = results.sort((a, b) => {
+                const snapshot = await response.json();
+                if (!Array.isArray(snapshot.markets) || snapshot.markets.length === 0) {
+                    throw new Error('Опубликованный снимок Stobix пуст или имеет неверный формат');
+                }
+
+                const rows = snapshot.markets.map((market) => ({
+                    symbol: market.symbol,
+                    current_price: market.current_price,
+                    volatilityValue: Number.isFinite(market.volatilityValue)
+                        ? market.volatilityValue
+                        : null
+                })).sort((a, b) => {
                     if (a.volatilityValue === null) return 1;
                     if (b.volatilityValue === null) return -1;
                     return b.volatilityValue - a.volatilityValue;
                 });
+                const symbols = rows.map((coin) => coin.symbol);
+                document.getElementById('watchlist').value = symbols
+                    .map(formatPair)
+                    .join(', ');
                 renderTable(rows);
 
                 rows.forEach((coin) => {
@@ -525,18 +413,31 @@
                     }
                 });
 
-                document.getElementById('lastupdate').textContent = `Обновлено: ${new Date().toLocaleString('ru-RU')}`;
+                const generatedAt = new Date(snapshot.generatedAt);
+                if (Number.isNaN(generatedAt.getTime())) {
+                    throw new Error('В снимке Stobix отсутствует корректное время обновления');
+                }
+                document.getElementById('lastupdate').textContent =
+                    `Данные Stobix: ${generatedAt.toLocaleString('ru-RU')}`;
                 const available = rows.filter((coin) => coin.volatilityValue !== null).length;
                 const missing = rows.length - available;
-                setStatus(
-                    missing
-                        ? `Волатильность за последний час: ${available}/${rows.length} пар; для ${missing} нет данных.`
-                        : `Волатильность за последний час обновлена для всех ${rows.length} пар Stobix.`
-                );
+                const snapshotAgeMinutes = Math.max(0, (Date.now() - generatedAt.getTime()) / 60000);
+                if (snapshotAgeMinutes > 15) {
+                    setStatus(
+                        `Снимку данных ${Math.floor(snapshotAgeMinutes)} мин. Проверьте выполнение GitHub Actions.`,
+                        true
+                    );
+                } else {
+                    setStatus(
+                        missing
+                            ? `Волатильность за последний час: ${available}/${rows.length} пар; для ${missing} нет данных.`
+                            : `Волатильность за последний час обновлена для всех ${rows.length} пар Stobix.`
+                    );
+                }
             } catch (error) {
                 console.error(error);
                 setStatus(`Ошибка загрузки: ${error.message}`, true);
-                document.getElementById('lastupdate').textContent = 'Ошибка загрузки данных';
+                document.getElementById('lastupdate').textContent = 'Снимок Stobix недоступен';
             } finally {
                 state.isLoading = false;
             }
