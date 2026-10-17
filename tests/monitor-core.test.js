@@ -60,7 +60,7 @@ test('alerts on each newly reached whole-percent level', () => {
     assert.equal(result.alertState.BTCUSDT, 4);
     assert.match(
         result.alerts[0].message,
-        /^🟢⬆️ <a href="https:\/\/stobix\.com\/invite\/qdjlyh\?to=\/futures\/BTC\/USDT">BTC\/USDT<\/a>:/
+        /^🟢#BTC\/USDT: 1h volatility 4\.20% <a href="https:\/\/stobix\.com\/invite\/qdjlyh\?to=\/futures\/BTC\/USDT">open on stobix<\/a>$/
     );
 });
 
@@ -94,7 +94,7 @@ test('uses a supplied fallback level to avoid startup alerts', () => {
     assert.equal(result.alertState.BTCUSDT, 5);
 });
 
-test('formats linked Telegram alerts with a red down arrow for negative price movement', () => {
+test('formats Telegram alerts with the requested short English text and linked Stobix label', () => {
     const message = formatTelegramAlert({
         symbol: 'FILUSDT',
         volatilityValue: 2.09,
@@ -103,12 +103,12 @@ test('formats linked Telegram alerts with a red down arrow for negative price mo
 
     assert.equal(
         message,
-        '🔴⬇️ <a href="https://stobix.com/invite/qdjlyh?to=/futures/FIL/USDT">FIL/USDT</a>: ' +
-        'часовая волатильность достигла 2% (текущая 2.09%).'
+        '🔴#FIL/USDT: 1h volatility 2.09% ' +
+        '<a href="https://stobix.com/invite/qdjlyh?to=/futures/FIL/USDT">open on stobix</a>'
     );
 });
 
-test('uses a neutral arrow when the hourly net price change is zero or unavailable', () => {
+test('uses a neutral indicator when the hourly net price change is zero or unavailable', () => {
     const unchanged = formatTelegramAlert({
         symbol: 'ETHUSDT',
         volatilityValue: 2,
@@ -120,8 +120,8 @@ test('uses a neutral arrow when the hourly net price change is zero or unavailab
         priceChangePercent: null
     }, 2);
 
-    assert.match(unchanged, /^⚪↔️/);
-    assert.match(unavailable, /^⚪↔️/);
+    assert.match(unchanged, /^⚪#ETH\/USDT:/);
+    assert.match(unavailable, /^⚪#ETH\/USDT:/);
 });
 
 test('escapes dynamic values in linked Telegram alerts', () => {
@@ -132,7 +132,8 @@ test('escapes dynamic values in linked Telegram alerts', () => {
     }, 2);
 
     assert.match(message, /stobix\.com\/invite\/qdjlyh\?to=\/futures\/A%26B\/USDT/);
-    assert.match(message, /A&amp;B\/USDT/);
+    assert.match(message, /#A&amp;B\/USDT: 1h volatility 2\.50%/);
+    assert.match(message, /<a href="https:\/\/stobix\.com\/invite\/qdjlyh\?to=\/futures\/A%26B\/USDT">open on stobix<\/a>/);
 });
 
 test('parses carried alert state and rejects malformed state', () => {

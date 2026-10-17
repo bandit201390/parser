@@ -47,20 +47,20 @@ function escapeHtml(value) {
         .replace(/"/g, '&quot;');
 }
 
-function formatTelegramAlert(market, level) {
+function formatTelegramAlert(market) {
     const pair = market.symbol.replace(/USDT$/, '/USDT');
     const [base, quote] = pair.split('/');
     const link = `https://stobix.com/invite/qdjlyh?to=/futures/${encodeURIComponent(base)}/${encodeURIComponent(quote)}`;
     const direction = Number.isFinite(market.priceChangePercent)
         ? market.priceChangePercent > 0
-            ? '🟢⬆️'
+            ? '🟢'
             : market.priceChangePercent < 0
-                ? '🔴⬇️'
-                : '⚪↔️'
-        : '⚪↔️';
+                ? '🔴'
+                : '⚪'
+        : '⚪';
 
-    return `${direction} <a href="${escapeHtml(link)}">${escapeHtml(pair)}</a>: ` +
-        `часовая волатильность достигла ${level}% (текущая ${market.volatilityValue.toFixed(2)}%).`;
+    return `${direction}#${escapeHtml(pair)}: 1h volatility ${market.volatilityValue.toFixed(2)}% ` +
+        `<a href="${escapeHtml(link)}">open on stobix</a>`;
 }
 
 function advanceAlertState(markets, previousLevels, fallbackLevels = {}, firstThreshold = 2) {
@@ -96,7 +96,7 @@ function advanceAlertState(markets, previousLevels, fallbackLevels = {}, firstTh
             alerts.push({
                 symbol: market.symbol,
                 level,
-                message: formatTelegramAlert(market, level)
+                message: formatTelegramAlert(market)
             });
         }
         alertState[market.symbol] = currentLevel;
