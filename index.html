@@ -225,7 +225,6 @@
                 </div>
 
                 <button class="primary" id="refreshBtn" type="button">Обновить</button>
-                <button class="secondary" id="toggleAutoBtn" type="button">Остановить автообновление</button>
             </div>
 
             <div class="status-row">
@@ -266,8 +265,6 @@
     <script>
         const state = {
             threshold: 3,
-            autoRefresh: true,
-            intervalId: null,
             previousSnapshot: {},
             isLoading: false
         };
@@ -443,26 +440,7 @@
             }
         }
 
-        function toggleAutoRefresh() {
-            if (state.autoRefresh) {
-                clearInterval(state.intervalId);
-                state.intervalId = null;
-                state.autoRefresh = false;
-                document.getElementById('toggleAutoBtn').textContent = 'Запустить автообновление';
-                setStatus('Автообновление остановлено.');
-                return;
-            }
-
-            state.autoRefresh = true;
-            document.getElementById('toggleAutoBtn').textContent = 'Остановить автообновление';
-            state.intervalId = setInterval(() => loadData(), 60000);
-            setStatus('Автообновление запущено.');
-            loadData();
-        }
-
         document.getElementById('refreshBtn').addEventListener('click', loadData);
-        document.getElementById('toggleAutoBtn').addEventListener('click', toggleAutoRefresh);
-        state.intervalId = setInterval(() => loadData(), 60000);
 
         if (Notification.permission === 'default') {
             Notification.requestPermission().catch(() => {});

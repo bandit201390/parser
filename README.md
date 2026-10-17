@@ -1,6 +1,6 @@
 # Stobix volatility monitor
 
-The GitHub Pages site displays the latest published snapshot. Telegram alerts can be monitored independently of the page using the GitHub Actions WebSocket monitor.
+The GitHub Pages site displays the latest published snapshot. Opening the page loads that snapshot once; the **Обновить** button fetches the latest already-published snapshot without starting a new GitHub Actions run. Telegram alerts can be monitored independently of the page using the GitHub Actions WebSocket monitor.
 
 ## Start and stop continuous Telegram monitoring
 
