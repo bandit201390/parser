@@ -1,6 +1,6 @@
 # Stobix volatility monitor
 
-The GitHub Pages site displays the latest published snapshot. Opening the page loads that snapshot once; **Обновить** fetches the latest already-published snapshot. To calculate fresh Stobix data on demand, use **Получить свежие данные**, press **Run workflow** on the GitHub Actions page that opens, then return to the monitor page. It waits for publication and displays the volatility change in percentage points relative to the previously loaded snapshot. GitHub requires an authenticated user action to dispatch the workflow, so the static page cannot start it directly or expose a token. Telegram alerts can be monitored independently of the page using the GitHub Actions WebSocket monitor.
+The GitHub Pages site displays the latest published snapshot. Opening the page loads that snapshot once; **Обновить** fetches the latest already-published snapshot. The volatility change is shown in percentage points relative to the previously loaded snapshot. The page does not trigger a new GitHub Actions run, so the displayed data changes only after the scheduled publisher has published a new snapshot. Telegram alerts can be monitored independently of the page using the GitHub Actions WebSocket monitor.
 
 ## Start and stop continuous Telegram monitoring
 

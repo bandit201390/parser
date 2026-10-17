@@ -101,10 +101,6 @@
             border-color: #5bb8ff;
         }
 
-        .secondary {
-            background: #2d3b53;
-        }
-
         .status-row {
             display: flex;
             justify-content: space-between;
@@ -205,7 +201,7 @@
 <body>
     <div class="container">
         <h1>Coin Monitor</h1>
-        <div class="sub">Мониторинг волатильности всех фьючерсных пар Stobix за скользящий последний час. «Получить свежие данные» запускает сбор через GitHub Actions; после публикации покажем изменение к предыдущему снимку.</div>
+        <div class="sub">Мониторинг волатильности всех фьючерсных пар Stobix за скользящий последний час. Кнопка «Обновить» загружает последний опубликованный снимок и показывает изменение к предыдущему.</div>
 
         <div class="panel">
             <div class="toolbar">
@@ -225,9 +221,6 @@
                 </div>
 
                 <button class="primary" id="refreshBtn" type="button">Обновить</button>
-                <button class="secondary" id="freshDataBtn" type="button" disabled>
-                    Получить свежие данные
-                </button>
             </div>
 
             <div class="status-row">
@@ -270,18 +263,8 @@
         const state = {
             threshold: 3,
             previousSnapshot: {},
-            isLoading: false,
-            isWaitingForFreshSnapshot: false,
-            snapshotGeneratedAt: null,
-            requestedSnapshotAfter: null,
-            snapshotPollIntervalId: null,
-            snapshotPollTimeoutId: null
+            isLoading: false
         };
-
-        const PUBLISH_WORKFLOW_URL =
-            'https://github.com/bandit201390/parser/actions/workflows/publish-pages.yml';
-        const SNAPSHOT_POLL_INTERVAL_MS = 15000;
-        const SNAPSHOT_POLL_TIMEOUT_MS = 15 * 60 * 1000;
 
         function formatPair(symbol) {
             return `${symbol.slice(0, -4)}/USDT`;
@@ -402,27 +385,11 @@
             state.previousSnapshot[coin.symbol] = value;
         }
 
-        function stopWaitingForFreshSnapshot(message, isError = false) {
-            if (state.snapshotPollIntervalId !== null) {
-                clearInterval(state.snapshotPollIntervalId);
-                state.snapshotPollIntervalId = null;
-            }
-            if (state.snapshotPollTimeoutId !== null) {
-                clearTimeout(state.snapshotPollTimeoutId);
-                state.snapshotPollTimeoutId = null;
-            }
-            state.isWaitingForFreshSnapshot = false;
-            document.getElementById('freshDataBtn').disabled = state.snapshotGeneratedAt === null;
-            setStatus(message, isError);
-        }
-
-        async function loadData({ onlyIfNew = false, background = false } = {}) {
+        async function loadData() {
             if (state.isLoading) return;
             state.isLoading = true;
             state.threshold = Math.max(0, Number(document.getElementById('threshold').value) || 0);
-            if (!background) {
-                setStatus('Загрузка последнего опубликованного снимка Stobix…');
-            }
+            setStatus('Загрузка последнего опубликованного снимка Stobix…');
 
             try {
                 const snapshotUrl = new URL('data/market-snapshot.json', window.location.href);
@@ -431,7 +398,7 @@
                 if (!response.ok) {
                     throw new Error(
                         response.status === 404
-                            ? 'Снимок данных ещё не опубликован GitHub Actions. Запустите workflow обновления Stobix.'
+                            ? 'Снимок данных ещё не опубликован GitHub Actions.'
                             : `HTTP ${response.status}`
                     );
                 }
@@ -443,10 +410,6 @@
                 const generatedAt = new Date(snapshot.generatedAt);
                 if (Number.isNaN(generatedAt.getTime())) {
                     throw new Error('В снимке Stobix отсутствует корректное время обновления');
-                }
-
-                if (onlyIfNew && generatedAt <= state.requestedSnapshotAfter) {
-                    return;
                 }
 
                 const rows = snapshot.markets.map((market) => ({
@@ -472,23 +435,17 @@
                     }
                 });
 
-                const isFreshSnapshot = state.isWaitingForFreshSnapshot &&
-                    generatedAt > state.requestedSnapshotAfter;
-                state.snapshotGeneratedAt = generatedAt;
                 document.getElementById('lastupdate').textContent =
                     `Данные Stobix: ${generatedAt.toLocaleString('ru-RU')}`;
-                if (isFreshSnapshot) {
-                    stopWaitingForFreshSnapshot('Загружен свежий снимок. Изменение волатильности показано относительно предыдущего снимка.');
-                }
                 const available = rows.filter((coin) => coin.volatilityValue !== null).length;
                 const missing = rows.length - available;
                 const snapshotAgeMinutes = Math.max(0, (Date.now() - generatedAt.getTime()) / 60000);
-                if (!isFreshSnapshot && snapshotAgeMinutes > 15) {
+                if (snapshotAgeMinutes > 15) {
                     setStatus(
                         `Снимку данных ${Math.floor(snapshotAgeMinutes)} мин. Проверьте выполнение GitHub Actions.`,
                         true
                     );
-                } else if (!isFreshSnapshot) {
+                } else {
                     setStatus(
                         missing
                             ? `Волатильность за последний час: ${available}/${rows.length} пар; для ${missing} нет данных.`
@@ -497,42 +454,14 @@
                 }
             } catch (error) {
                 console.error(error);
-                if (!background) {
-                    setStatus(`Ошибка загрузки: ${error.message}`, true);
-                }
+                setStatus(`Ошибка загрузки: ${error.message}`, true);
                 document.getElementById('lastupdate').textContent = 'Снимок Stobix недоступен';
             } finally {
                 state.isLoading = false;
-                if (state.snapshotGeneratedAt !== null) {
-                    document.getElementById('freshDataBtn').disabled = false;
-                }
             }
-        }
-
-        function requestFreshData() {
-            if (state.isWaitingForFreshSnapshot || state.snapshotGeneratedAt === null) {
-                return;
-            }
-
-            window.open(PUBLISH_WORKFLOW_URL, '_blank', 'noopener,noreferrer');
-            state.isWaitingForFreshSnapshot = true;
-            state.requestedSnapshotAfter = state.snapshotGeneratedAt;
-            document.getElementById('freshDataBtn').disabled = true;
-            setStatus('В GitHub Actions нажмите «Run workflow». Ждём публикацию свежего снимка…');
-            state.snapshotPollIntervalId = setInterval(
-                () => loadData({ onlyIfNew: true, background: true }),
-                SNAPSHOT_POLL_INTERVAL_MS
-            );
-            state.snapshotPollTimeoutId = setTimeout(() => {
-                stopWaitingForFreshSnapshot(
-                    'Новый снимок не появился за 15 минут. Проверьте запуск GitHub Actions и нажмите «Обновить».',
-                    true
-                );
-            }, SNAPSHOT_POLL_TIMEOUT_MS);
         }
 
         document.getElementById('refreshBtn').addEventListener('click', loadData);
-        document.getElementById('freshDataBtn').addEventListener('click', requestFreshData);
 
         if (Notification.permission === 'default') {
             Notification.requestPermission().catch(() => {});
