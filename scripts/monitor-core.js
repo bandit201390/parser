@@ -39,6 +39,30 @@ function pruneCandles(candles, now) {
     );
 }
 
+function escapeHtml(value) {
+    return String(value)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;');
+}
+
+function formatTelegramAlert(market, level) {
+    const pair = market.symbol.replace(/USDT$/, '/USDT');
+    const [base, quote] = pair.split('/');
+    const link = `https://app.stobix.com/futures/${encodeURIComponent(base)}/${encodeURIComponent(quote)}`;
+    const direction = Number.isFinite(market.priceChangePercent)
+        ? market.priceChangePercent > 0
+            ? '🟢⬆️'
+            : market.priceChangePercent < 0
+                ? '🔴⬇️'
+                : '⚪↔️'
+        : '⚪↔️';
+
+    return `${direction} <a href="${escapeHtml(link)}">${escapeHtml(pair)}</a>: ` +
+        `часовая волатильность достигла ${level}% (текущая ${market.volatilityValue.toFixed(2)}%).`;
+}
+
 function advanceAlertState(markets, previousLevels, fallbackLevels = {}, firstThreshold = 2) {
     const alertState = {};
     const alerts = [];
@@ -72,7 +96,7 @@ function advanceAlertState(markets, previousLevels, fallbackLevels = {}, firstTh
             alerts.push({
                 symbol: market.symbol,
                 level,
-                message: `🔔 ${market.symbol.replace(/USDT$/, '/USDT')}: часовая волатильность достигла ${level}% (текущая ${volatility.toFixed(2)}%).`
+                message: formatTelegramAlert(market, level)
             });
         }
         alertState[market.symbol] = currentLevel;
@@ -85,5 +109,6 @@ module.exports = {
     addPriceToCandles,
     advanceAlertState,
     calculateVolatility,
+    formatTelegramAlert,
     pruneCandles
 };

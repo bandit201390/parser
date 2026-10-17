@@ -226,7 +226,10 @@ function getCurrentMarketData(markets, now) {
         return {
             symbol: market.symbol,
             current_price: market.currentPrice,
-            volatilityValue: calculateVolatility(candles)
+            volatilityValue: calculateVolatility(candles),
+            priceChangePercent: candles.length && candles[0].open > 0
+                ? ((market.currentPrice - candles[0].open) / candles[0].open) * 100
+                : null
         };
     });
 }
@@ -354,7 +357,8 @@ async function sendTelegramAlerts(alerts) {
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
                 chat_id: chatId,
-                text: messages.map((item) => item.message).join('\n')
+                text: messages.map((item) => item.message).join('\n'),
+                parse_mode: 'HTML'
             }),
             signal: AbortSignal.timeout(15_000)
         });

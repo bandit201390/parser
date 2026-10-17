@@ -4,6 +4,7 @@ const {
     addPriceToCandles,
     advanceAlertState,
     calculateVolatility,
+    formatTelegramAlert,
     pruneCandles
 } = require('../scripts/monitor-core');
 const { handleRatesUpdate, parseCarriedState } = require('../scripts/monitor');
@@ -52,11 +53,12 @@ test('retains only candles in the rolling hourly window', () => {
 
 test('alerts on each newly reached whole-percent level', () => {
     const result = advanceAlertState(
-        [{ symbol: 'BTCUSDT', volatilityValue: 4.2 }],
+        [{ symbol: 'BTCUSDT', volatilityValue: 4.2, priceChangePercent: 1.5 }],
         { BTCUSDT: 1 }
     );
     assert.deepEqual(result.alerts.map((alert) => alert.level), [2, 3, 4]);
     assert.equal(result.alertState.BTCUSDT, 4);
+    assert.match(result.alerts[0].message, /^🟢⬆️ <a href="https:\/\/app\.stobix\.com\/futures\/BTC\/USDT">BTC\/USDT<\/a>:/);
 });
 
 test('does not repeat reached levels and rearms below the first threshold', () => {
@@ -87,6 +89,47 @@ test('uses a supplied fallback level to avoid startup alerts', () => {
     );
     assert.deepEqual(result.alerts, []);
     assert.equal(result.alertState.BTCUSDT, 5);
+});
+
+test('formats linked Telegram alerts with a red down arrow for negative price movement', () => {
+    const message = formatTelegramAlert({
+        symbol: 'FILUSDT',
+        volatilityValue: 2.09,
+        priceChangePercent: -0.4
+    }, 2);
+
+    assert.equal(
+        message,
+        '🔴⬇️ <a href="https://app.stobix.com/futures/FIL/USDT">FIL/USDT</a>: ' +
+        'часовая волатильность достигла 2% (текущая 2.09%).'
+    );
+});
+
+test('uses a neutral arrow when the hourly net price change is zero or unavailable', () => {
+    const unchanged = formatTelegramAlert({
+        symbol: 'ETHUSDT',
+        volatilityValue: 2,
+        priceChangePercent: 0
+    }, 2);
+    const unavailable = formatTelegramAlert({
+        symbol: 'ETHUSDT',
+        volatilityValue: 2,
+        priceChangePercent: null
+    }, 2);
+
+    assert.match(unchanged, /^⚪↔️/);
+    assert.match(unavailable, /^⚪↔️/);
+});
+
+test('escapes dynamic values in linked Telegram alerts', () => {
+    const message = formatTelegramAlert({
+        symbol: 'A&BUSDT',
+        volatilityValue: 2.5,
+        priceChangePercent: 1
+    }, 2);
+
+    assert.match(message, /futures\/A%26B\/USDT/);
+    assert.match(message, /A&amp;B\/USDT/);
 });
 
 test('parses carried alert state and rejects malformed state', () => {

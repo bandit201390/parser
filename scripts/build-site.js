@@ -93,6 +93,7 @@ async function loadMarket(symbol, startTime, endTime) {
         Number.isFinite(candle.low) &&
         Number.isFinite(candle.close)
     );
+    candles.sort((left, right) => left.time - right.time);
 
     if (candles.length === 0) {
         throw new Error(`Stobix returned no hourly candles for ${symbol}`);
@@ -101,7 +102,10 @@ async function loadMarket(symbol, startTime, endTime) {
     return {
         symbol: symbol.replace('/', ''),
         current_price: candles[candles.length - 1].close,
-        volatilityValue: calculateVolatility(candles)
+        volatilityValue: calculateVolatility(candles),
+        priceChangePercent: candles[0].open > 0
+            ? ((candles[candles.length - 1].close - candles[0].open) / candles[0].open) * 100
+            : null
     };
 }
 
@@ -192,7 +196,8 @@ async function sendTelegramAlerts(alerts) {
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
                 chat_id: chatId,
-                text: messages.map((item) => item.message).join('\n')
+                text: messages.map((item) => item.message).join('\n'),
+                parse_mode: 'HTML'
             }),
             signal: AbortSignal.timeout(15000)
         });
