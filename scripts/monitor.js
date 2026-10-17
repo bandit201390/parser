@@ -362,7 +362,8 @@ async function sendTelegramAlerts(alerts) {
             body: JSON.stringify({
                 chat_id: chatId,
                 text: messages.map((item) => item.message).join('\n'),
-                parse_mode: 'HTML'
+                parse_mode: 'HTML',
+                link_preview_options: { is_disabled: true }
             }),
             signal: AbortSignal.timeout(15_000)
         });
