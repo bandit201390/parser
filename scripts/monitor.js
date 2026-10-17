@@ -82,7 +82,11 @@ function parseCarriedState(value) {
 
     let state;
     try {
-        state = JSON.parse(value);
+        const encoded = value.trim();
+        const json = encoded.startsWith('{')
+            ? encoded
+            : Buffer.from(encoded, 'base64').toString('utf8');
+        state = JSON.parse(json);
     } catch (error) {
         throw new Error(`The carried monitor state is invalid JSON: ${error.message}`);
     }
@@ -398,7 +402,9 @@ async function dispatchNextRun(alertState) {
             },
             body: JSON.stringify({
                 ref,
-                inputs: { carry_state: JSON.stringify(alertState) }
+                inputs: {
+                    carry_state: Buffer.from(JSON.stringify(alertState)).toString('base64')
+                }
             }),
             signal: AbortSignal.timeout(15_000)
         }

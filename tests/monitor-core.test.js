@@ -134,6 +134,10 @@ test('escapes dynamic values in linked Telegram alerts', () => {
 
 test('parses carried alert state and rejects malformed state', () => {
     assert.deepEqual(parseCarriedState('{"BTCUSDT":3}'), { BTCUSDT: 3 });
+    assert.deepEqual(
+        parseCarriedState(Buffer.from('{"BTCUSDT":3}').toString('base64')),
+        { BTCUSDT: 3 }
+    );
     assert.throws(() => parseCarriedState('not-json'), /invalid JSON/);
     assert.throws(() => parseCarriedState('{"BTCUSDT":1.5}'), /invalid entry/);
 });
