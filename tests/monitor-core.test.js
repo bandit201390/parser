@@ -58,7 +58,10 @@ test('alerts on each newly reached whole-percent level', () => {
     );
     assert.deepEqual(result.alerts.map((alert) => alert.level), [2, 3, 4]);
     assert.equal(result.alertState.BTCUSDT, 4);
-    assert.match(result.alerts[0].message, /^🟢⬆️ <a href="https:\/\/app\.stobix\.com\/futures\/BTC\/USDT">BTC\/USDT<\/a>:/);
+    assert.match(
+        result.alerts[0].message,
+        /^🟢⬆️ <a href="https:\/\/app\.stobix\.com\/futures\/BTC\/USDT\?utm_source=invite&amp;utm_medium=referral&amp;utm_content=qdjlyh">BTC\/USDT<\/a>:/
+    );
 });
 
 test('does not repeat reached levels and rearms below the first threshold', () => {
@@ -100,7 +103,7 @@ test('formats linked Telegram alerts with a red down arrow for negative price mo
 
     assert.equal(
         message,
-        '🔴⬇️ <a href="https://app.stobix.com/futures/FIL/USDT">FIL/USDT</a>: ' +
+        '🔴⬇️ <a href="https://app.stobix.com/futures/FIL/USDT?utm_source=invite&amp;utm_medium=referral&amp;utm_content=qdjlyh">FIL/USDT</a>: ' +
         'часовая волатильность достигла 2% (текущая 2.09%).'
     );
 });
@@ -128,7 +131,7 @@ test('escapes dynamic values in linked Telegram alerts', () => {
         priceChangePercent: 1
     }, 2);
 
-    assert.match(message, /futures\/A%26B\/USDT/);
+    assert.match(message, /futures\/A%26B\/USDT\?utm_source=invite&amp;utm_medium=referral&amp;utm_content=qdjlyh/);
     assert.match(message, /A&amp;B\/USDT/);
 });
 
