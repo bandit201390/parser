@@ -50,8 +50,7 @@ function escapeHtml(value) {
 function formatTelegramAlert(market, level) {
     const pair = market.symbol.replace(/USDT$/, '/USDT');
     const [base, quote] = pair.split('/');
-    const link = `https://app.stobix.com/futures/${encodeURIComponent(base)}/${encodeURIComponent(quote)}` +
-        '?utm_source=invite&utm_medium=referral&utm_content=qdjlyh';
+    const link = `https://stobix.com/invite/qdjlyh?to=/futures/${encodeURIComponent(base)}/${encodeURIComponent(quote)}`;
     const direction = Number.isFinite(market.priceChangePercent)
         ? market.priceChangePercent > 0
             ? '🟢⬆️'
