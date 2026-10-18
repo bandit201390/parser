@@ -48,9 +48,16 @@ function escapeHtml(value) {
 }
 
 function formatTelegramAlert(market) {
-    const pair = market.symbol.replace(/USDT$/, '/USDT');
-    const [base, quote] = pair.split('/');
-    const link = `https://stobix.com/invite/qdjlyh?to=/futures/${encodeURIComponent(base)}/${encodeURIComponent(quote)}`;
+    const ticker = market.symbol;
+    const base = ticker.replace(/USDT$/, '');
+    if (!Number.isFinite(market.current_price)) {
+        throw new Error(`Cannot format Telegram alert for ${ticker}: current price is unavailable`);
+    }
+    const price = market.current_price.toLocaleString('en-US', {
+        useGrouping: false,
+        maximumFractionDigits: 8
+    });
+    const link = `https://stobix.com/invite/qdjlyh?to=/futures/${encodeURIComponent(base)}/USDT`;
     const direction = Number.isFinite(market.priceChangePercent)
         ? market.priceChangePercent > 0
             ? '🟢'
@@ -59,7 +66,7 @@ function formatTelegramAlert(market) {
                 : '⚪'
         : '⚪';
 
-    return `${direction}#${escapeHtml(pair)}: 1h volatility ${market.volatilityValue.toFixed(2)}% ` +
+    return `${direction}#${escapeHtml(ticker)}: ${price} 1h volatility ${market.volatilityValue.toFixed(2)}% ` +
         `<a href="${escapeHtml(link)}">open on stobix</a>`;
 }
 

@@ -53,14 +53,14 @@ test('retains only candles in the rolling hourly window', () => {
 
 test('alerts on each newly reached whole-percent level', () => {
     const result = advanceAlertState(
-        [{ symbol: 'BTCUSDT', volatilityValue: 4.2, priceChangePercent: 1.5 }],
+        [{ symbol: 'BTCUSDT', current_price: 65000, volatilityValue: 4.2, priceChangePercent: 1.5 }],
         { BTCUSDT: 1 }
     );
     assert.deepEqual(result.alerts.map((alert) => alert.level), [2, 3, 4]);
     assert.equal(result.alertState.BTCUSDT, 4);
     assert.match(
         result.alerts[0].message,
-        /^🟢#BTC\/USDT: 1h volatility 4\.20% <a href="https:\/\/stobix\.com\/invite\/qdjlyh\?to=\/futures\/BTC\/USDT">open on stobix<\/a>$/
+        /^🟢#BTCUSDT: 65000 1h volatility 4\.20% <a href="https:\/\/stobix\.com\/invite\/qdjlyh\?to=\/futures\/BTC\/USDT">open on stobix<\/a>$/
     );
 });
 
@@ -78,7 +78,7 @@ test('does not repeat reached levels and rearms below the first threshold', () =
     assert.equal(belowThreshold.alertState.BTCUSDT, 1);
 
     const crossedAgain = advanceAlertState(
-        [{ symbol: 'BTCUSDT', volatilityValue: 2 }],
+        [{ symbol: 'BTCUSDT', current_price: 1, volatilityValue: 2 }],
         belowThreshold.alertState
     );
     assert.deepEqual(crossedAgain.alerts.map((alert) => alert.level), [2]);
@@ -97,13 +97,14 @@ test('uses a supplied fallback level to avoid startup alerts', () => {
 test('formats Telegram alerts with the requested short English text and linked Stobix label', () => {
     const message = formatTelegramAlert({
         symbol: 'FILUSDT',
+        current_price: 5.9032,
         volatilityValue: 2.09,
         priceChangePercent: -0.4
     }, 2);
 
     assert.equal(
         message,
-        '🔴#FIL/USDT: 1h volatility 2.09% ' +
+        '🔴#FILUSDT: 5.9032 1h volatility 2.09% ' +
         '<a href="https://stobix.com/invite/qdjlyh?to=/futures/FIL/USDT">open on stobix</a>'
     );
 });
@@ -111,28 +112,31 @@ test('formats Telegram alerts with the requested short English text and linked S
 test('uses a neutral indicator when the hourly net price change is zero or unavailable', () => {
     const unchanged = formatTelegramAlert({
         symbol: 'ETHUSDT',
+        current_price: 2500,
         volatilityValue: 2,
         priceChangePercent: 0
     }, 2);
     const unavailable = formatTelegramAlert({
         symbol: 'ETHUSDT',
+        current_price: 2500,
         volatilityValue: 2,
         priceChangePercent: null
     }, 2);
 
-    assert.match(unchanged, /^⚪#ETH\/USDT:/);
-    assert.match(unavailable, /^⚪#ETH\/USDT:/);
+    assert.match(unchanged, /^⚪#ETHUSDT: 2500 1h volatility/);
+    assert.match(unavailable, /^⚪#ETHUSDT: 2500 1h volatility/);
 });
 
 test('escapes dynamic values in linked Telegram alerts', () => {
     const message = formatTelegramAlert({
         symbol: 'A&BUSDT',
+        current_price: 0.000042,
         volatilityValue: 2.5,
         priceChangePercent: 1
     }, 2);
 
     assert.match(message, /stobix\.com\/invite\/qdjlyh\?to=\/futures\/A%26B\/USDT/);
-    assert.match(message, /#A&amp;B\/USDT: 1h volatility 2\.50%/);
+    assert.match(message, /#A&amp;BUSDT: 0\.000042 1h volatility 2\.50%/);
     assert.match(message, /<a href="https:\/\/stobix\.com\/invite\/qdjlyh\?to=\/futures\/A%26B\/USDT">open on stobix<\/a>/);
 });
 
