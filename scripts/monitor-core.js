@@ -1,3 +1,53 @@
+const MARKET_DIRECTIONS = ['LONG', 'SHORT'];
+const MARKET_FEE_TYPES = ['entryFee', 'closeFee'];
+const MAX_PER_SIDE_COMMISSION = 0.001;
+
+function filterMarketsByCommission(markets, maxCommission = MAX_PER_SIDE_COMMISSION) {
+    if (!Array.isArray(markets) || !Number.isFinite(maxCommission) || maxCommission < 0) {
+        throw new Error('Cannot filter Stobix markets: invalid market list or commission limit');
+    }
+
+    const eligible = [];
+    const excluded = [];
+    for (const market of markets) {
+        if (!market || typeof market.symbol !== 'string' ||
+            !/^[A-Z0-9]+\/[A-Z0-9]+$/.test(market.symbol)) {
+            throw new Error('Stobix returned a futures market with an invalid symbol');
+        }
+        if (!market.symbol.endsWith('/USDT')) continue;
+        if (!Array.isArray(market.markets)) {
+            throw new Error(`Stobix returned invalid commission data for ${market.symbol}`);
+        }
+
+        const feesByDirection = new Map();
+        for (const side of market.markets) {
+            if (!side || !MARKET_DIRECTIONS.includes(side.direction) || feesByDirection.has(side.direction)) {
+                throw new Error(`Stobix returned invalid direction commission data for ${market.symbol}`);
+            }
+            const fees = MARKET_FEE_TYPES.map((feeType) => Number(side[feeType]));
+            if (fees.some((fee) => !Number.isFinite(fee) || fee < 0)) {
+                throw new Error(`Stobix returned invalid commission values for ${market.symbol} ${side.direction}`);
+            }
+            feesByDirection.set(side.direction, fees);
+        }
+        if (MARKET_DIRECTIONS.some((direction) => !feesByDirection.has(direction))) {
+            throw new Error(`Stobix returned incomplete LONG/SHORT commission data for ${market.symbol}`);
+        }
+
+        const maxMarketCommission = Math.max(...[...feesByDirection.values()].flat());
+        if (maxMarketCommission > maxCommission) {
+            excluded.push({ ...market, maxCommission: maxMarketCommission });
+        } else {
+            eligible.push(market);
+        }
+    }
+
+    if (eligible.length === 0) {
+        throw new Error('No USDT futures markets meet the per-side commission limit');
+    }
+    return { eligible, excluded };
+}
+
 function calculateVolatility(candles) {
     if (candles.length === 0 || candles[0].open <= 0) {
         return null;
@@ -116,6 +166,7 @@ module.exports = {
     addPriceToCandles,
     advanceAlertState,
     calculateVolatility,
+    filterMarketsByCommission,
     formatTelegramAlert,
     pruneCandles
 };

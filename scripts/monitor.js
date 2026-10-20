@@ -5,6 +5,7 @@ const {
     addPriceToCandles,
     advanceAlertState,
     calculateVolatility,
+    filterMarketsByCommission,
     pruneCandles
 } = require('./monitor-core');
 
@@ -169,11 +170,13 @@ async function loadMarkets() {
         throw new Error('Stobix returned an invalid futures markets list');
     }
 
-    const symbols = [...new Set(payload
-        .map((market) => market && market.symbol)
-        .filter((symbol) => typeof symbol === 'string' && symbol.endsWith('/USDT')))];
-    if (symbols.length === 0) {
-        throw new Error('Stobix returned no USDT futures markets');
+    const { eligible, excluded } = filterMarketsByCommission(payload);
+    const symbols = eligible.map((market) => market.symbol);
+    if (excluded.length > 0) {
+        console.log(
+            `Excluded ${excluded.length} market(s) with per-side commission above 0.1%: ` +
+            excluded.map((market) => market.symbol.replace('/', '')).join(', ')
+        );
     }
 
     const rates = await fetchJson(`${API_URL}/v1/rates?product=FUTURES`);

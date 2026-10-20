@@ -13,6 +13,8 @@ GitHub-hosted jobs have a maximum runtime. This workflow runs for about 5 hours 
 
 The Pages snapshot continues to use the separate scheduled publisher workflow. Telegram threshold checking does not depend on that schedule or on the browser page being open. No additional hosting provider is used; Stobix supplies market data and Telegram delivers notifications.
 
+Only USDT futures pairs with LONG and SHORT entry and close commissions all at or below 0.1% are included in the monitor and published snapshot. A pair is excluded if any one of those per-side rates exceeds 0.1%; missing or invalid commission data stops the run rather than allowing an unverified pair through. Both the WebSocket monitor and Pages publisher re-evaluate fees whenever they load the Stobix markets list, so an excluded pair is eligible again once every fee is 0.1% or lower.
+
 ## Weekly market and commission audit
 
 The **Weekly Stobix market and commission audit** workflow checks the futures market list every Monday at 09:00 UTC and can also be run manually. It compares newly listed and removed USDT pairs, and LONG/SHORT entry and close fees, then sends the changes (or a no-change summary) to Telegram. Fees are read from Stobix's `entryFee` and `closeFee` values and reported as percentages. The first run establishes the baseline without sending a report; subsequent runs compare against the saved `data/stobix-market-fees.json` file. The workflow requires the existing `TELEGRAM_BOT_TOKEN` and `TELEGRAM_CHAT_ID` Actions secrets and write access to the repository contents.

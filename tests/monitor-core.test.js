@@ -4,6 +4,7 @@ const {
     addPriceToCandles,
     advanceAlertState,
     calculateVolatility,
+    filterMarketsByCommission,
     formatTelegramAlert,
     pruneCandles
 } = require('../scripts/monitor-core');
@@ -19,6 +20,39 @@ test('calculates high-low volatility relative to the first candle open', () => {
 test('returns null when candle data is missing or invalid', () => {
     assert.equal(calculateVolatility([]), null);
     assert.equal(calculateVolatility([{ open: 0, high: 1, low: 0 }]), null);
+});
+
+test('excludes pairs only when any LONG/SHORT entry/close commission exceeds 0.1%', () => {
+    const makeMarket = (symbol, longEntry, longClose, shortEntry, shortClose) => ({
+        symbol,
+        markets: [
+            { direction: 'LONG', entryFee: String(longEntry), closeFee: String(longClose) },
+            { direction: 'SHORT', entryFee: String(shortEntry), closeFee: String(shortClose) }
+        ]
+    });
+    const result = filterMarketsByCommission([
+        makeMarket('KEEP/USDT', 0.001, 0.001, 0.0005, 0.001),
+        makeMarket('DROP/USDT', 0.0005, 0.0005, 0.0011, 0.0005),
+        makeMarket('DROP2/USDT', 0.0005, 0.0011, 0.0005, 0.0005),
+        makeMarket('XAU/USD', 0.01, 0.01, 0.01, 0.01)
+    ]);
+
+    assert.deepEqual(result.eligible.map((market) => market.symbol), ['KEEP/USDT']);
+    assert.deepEqual(result.excluded.map((market) => market.symbol), ['DROP/USDT', 'DROP2/USDT']);
+});
+
+test('fails explicitly when market commission data is missing or invalid', () => {
+    assert.throws(() => filterMarketsByCommission([{
+        symbol: 'BTC/USDT',
+        markets: [{ direction: 'LONG', entryFee: '0.001', closeFee: '0.001' }]
+    }]), /incomplete LONG\/SHORT/);
+    assert.throws(() => filterMarketsByCommission([{
+        symbol: 'BTC/USDT',
+        markets: [
+            { direction: 'LONG', entryFee: 'not-a-fee', closeFee: '0.001' },
+            { direction: 'SHORT', entryFee: '0.001', closeFee: '0.001' }
+        ]
+    }]), /invalid commission values/);
 });
 
 test('updates a minute candle with incoming prices', () => {

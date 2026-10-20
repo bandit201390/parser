@@ -1,6 +1,10 @@
 const fs = require('node:fs/promises');
 const path = require('node:path');
-const { advanceAlertState, calculateVolatility } = require('./monitor-core');
+const {
+    advanceAlertState,
+    calculateVolatility,
+    filterMarketsByCommission
+} = require('./monitor-core');
 
 const API_URL = 'https://api.stobix.com';
 const REPOSITORY_ROOT = path.resolve(__dirname, '..');
@@ -218,11 +222,13 @@ async function main() {
         throw new Error('Stobix returned an invalid futures markets list');
     }
 
-    const symbols = [...new Set(markets
-        .map((market) => market && market.symbol)
-        .filter((symbol) => typeof symbol === 'string' && symbol.endsWith('/USDT')))];
-    if (symbols.length === 0) {
-        throw new Error('Stobix returned no USDT futures markets');
+    const { eligible, excluded } = filterMarketsByCommission(markets);
+    const symbols = eligible.map((market) => market.symbol);
+    if (excluded.length > 0) {
+        console.log(
+            `Excluded ${excluded.length} market(s) with per-side commission above 0.1%: ` +
+            excluded.map((market) => market.symbol.replace('/', '')).join(', ')
+        );
     }
 
     const endTime = new Date();
