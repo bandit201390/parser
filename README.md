@@ -12,3 +12,7 @@ The GitHub Pages site displays the latest published snapshot. Opening the page l
 GitHub-hosted jobs have a maximum runtime. This workflow runs for about 5 hours 40 minutes, passes alert state to a successor run, and starts it automatically. GitHub Actions is not a permanent-service host, so restarts can have gaps and are not guaranteed to run without interruption. If a run fails before it starts its successor, restart the workflow manually.
 
 The Pages snapshot continues to use the separate scheduled publisher workflow. Telegram threshold checking does not depend on that schedule or on the browser page being open. No additional hosting provider is used; Stobix supplies market data and Telegram delivers notifications.
+
+## Weekly market and commission audit
+
+The **Weekly Stobix market and commission audit** workflow checks the futures market list every Monday at 09:00 UTC and can also be run manually. It compares newly listed and removed USDT pairs, and LONG/SHORT entry and close fees, then sends the changes (or a no-change summary) to Telegram. Fees are read from Stobix's `entryFee` and `closeFee` values and reported as percentages. The first run establishes the baseline without sending a report; subsequent runs compare against the saved `data/stobix-market-fees.json` file. The workflow requires the existing `TELEGRAM_BOT_TOKEN` and `TELEGRAM_CHAT_ID` Actions secrets and write access to the repository contents.
