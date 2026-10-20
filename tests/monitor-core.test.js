@@ -6,6 +6,7 @@ const {
     calculateVolatility,
     filterMarketsByCommission,
     formatTelegramAlert,
+    getAlertSchedule,
     pruneCandles
 } = require('../scripts/monitor-core');
 const { handleRatesUpdate, parseCarriedState } = require('../scripts/monitor');
@@ -55,6 +56,19 @@ test('fails explicitly when market commission data is missing or invalid', () =>
     }]), /invalid commission values/);
 });
 
+test('selects alert schedules at exact commission group boundaries', () => {
+    assert.deepEqual(
+        [0.0001, 0.00049, 0.0005, 0.00099, 0.001].map(getAlertSchedule),
+        [
+            { id: 'low', firstThresholdTicks: 50, stepTicks: 10 },
+            { id: 'low', firstThresholdTicks: 50, stepTicks: 10 },
+            { id: 'medium', firstThresholdTicks: 75, stepTicks: 25 },
+            { id: 'medium', firstThresholdTicks: 75, stepTicks: 25 },
+            { id: 'high', firstThresholdTicks: 100, stepTicks: 50 }
+        ]
+    );
+});
+
 test('updates a minute candle with incoming prices', () => {
     const candles = [{ time: 60_000, open: 100, high: 101, low: 99, close: 100 }];
     addPriceToCandles(candles, 119_000, 102);
@@ -85,47 +99,63 @@ test('retains only candles in the rolling hourly window', () => {
     ]);
 });
 
-test('alerts on each newly reached whole-percent level', () => {
+test('alerts on successive thresholds for a 0.1% commission pair', () => {
     const result = advanceAlertState(
-        [{ symbol: 'BTCUSDT', current_price: 65000, volatilityValue: 4.2, priceChangePercent: 1.5 }],
-        { BTCUSDT: 1 }
+        [{
+            symbol: 'BTCUSDT',
+            current_price: 65000,
+            commissionRate: 0.001,
+            volatilityValue: 2.1,
+            priceChangePercent: 1.5
+        }],
+        { BTCUSDT: { scheduleId: 'high', levelTicks: 100 } }
     );
-    assert.deepEqual(result.alerts.map((alert) => alert.level), [2, 3, 4]);
-    assert.equal(result.alertState.BTCUSDT, 4);
+    assert.deepEqual(result.alerts.map((alert) => alert.level), [1.5, 2]);
+    assert.deepEqual(result.alertState.BTCUSDT, { scheduleId: 'high', levelTicks: 200 });
     assert.match(
         result.alerts[0].message,
-        /^🟢#BTCUSDT: 65000 BUY 4\.20% <a href="https:\/\/stobix\.com\/invite\/qdjlyh\?to=\/futures\/BTC\/USDT">open on stobix<\/a>$/
+        /^🟢#BTCUSDT: 65000 BUY 2\.10% <a href="https:\/\/stobix\.com\/invite\/qdjlyh\?to=\/futures\/BTC\/USDT">open on stobix<\/a>$/
     );
 });
 
-test('does not repeat reached levels and rearms below the first threshold', () => {
-    const atThreshold = advanceAlertState(
-        [{ symbol: 'BTCUSDT', volatilityValue: 3.8 }],
-        { BTCUSDT: 3 }
-    );
-    assert.deepEqual(atThreshold.alerts, []);
-
-    const belowThreshold = advanceAlertState(
-        [{ symbol: 'BTCUSDT', volatilityValue: 1.9 }],
-        { BTCUSDT: 3 }
-    );
-    assert.equal(belowThreshold.alertState.BTCUSDT, 1);
-
-    const crossedAgain = advanceAlertState(
-        [{ symbol: 'BTCUSDT', current_price: 1, volatilityValue: 2 }],
-        belowThreshold.alertState
-    );
-    assert.deepEqual(crossedAgain.alerts.map((alert) => alert.level), [2]);
-});
-
-test('uses a supplied fallback level to avoid startup alerts', () => {
+test('alerts at 0.5% and then every 0.1% for low commission pairs', () => {
     const result = advanceAlertState(
-        [{ symbol: 'BTCUSDT', volatilityValue: 5.1 }],
-        {},
-        { BTCUSDT: 5 }
+        [{ symbol: 'BTCUSDT', current_price: 1, commissionRate: 0.0002, volatilityValue: 0.81 }],
+        { BTCUSDT: { scheduleId: 'low', levelTicks: 50 } }
+    );
+    assert.deepEqual(result.alerts.map((alert) => alert.level), [0.6, 0.7, 0.8]);
+    assert.deepEqual(result.alertState.BTCUSDT, { scheduleId: 'low', levelTicks: 80 });
+});
+
+test('alerts at 0.75% and then every 0.25% for medium commission pairs', () => {
+    const result = advanceAlertState(
+        [{ symbol: 'BTCUSDT', current_price: 1, commissionRate: 0.0006, volatilityValue: 1.26 }],
+        { BTCUSDT: { scheduleId: 'medium', levelTicks: 50 } }
+    );
+    assert.deepEqual(result.alerts.map((alert) => alert.level), [0.75, 1, 1.25]);
+    assert.deepEqual(result.alertState.BTCUSDT, { scheduleId: 'medium', levelTicks: 125 });
+});
+
+test('rearms at the start of the schedule after volatility drops below its first threshold', () => {
+    const dropped = advanceAlertState(
+        [{ symbol: 'BTCUSDT', current_price: 1, commissionRate: 0.0002, volatilityValue: 0.49 }],
+        { BTCUSDT: { scheduleId: 'low', levelTicks: 50 } }
+    );
+    assert.deepEqual(dropped.alertState.BTCUSDT, { scheduleId: 'low', levelTicks: 40 });
+    const crossedAgain = advanceAlertState(
+        [{ symbol: 'BTCUSDT', current_price: 1, commissionRate: 0.0002, volatilityValue: 0.5 }],
+        dropped.alertState
+    );
+    assert.deepEqual(crossedAgain.alerts.map((alert) => alert.level), [0.5]);
+});
+
+test('does not emit catch-up alerts on startup or when commission group changes', () => {
+    const result = advanceAlertState(
+        [{ symbol: 'BTCUSDT', current_price: 1, commissionRate: 0.0006, volatilityValue: 1.26 }],
+        { BTCUSDT: { scheduleId: 'low', levelTicks: 120 } }
     );
     assert.deepEqual(result.alerts, []);
-    assert.equal(result.alertState.BTCUSDT, 5);
+    assert.deepEqual(result.alertState.BTCUSDT, { scheduleId: 'medium', levelTicks: 125 });
 });
 
 test('formats Telegram alerts with the requested short English text and linked Stobix label', () => {
@@ -177,11 +207,19 @@ test('escapes dynamic values in linked Telegram alerts', () => {
 test('parses carried alert state and rejects malformed state', () => {
     assert.deepEqual(parseCarriedState('{"BTCUSDT":3}'), { BTCUSDT: 3 });
     assert.deepEqual(
+        parseCarriedState('{"BTCUSDT":{"scheduleId":"low","levelTicks":50}}'),
+        { BTCUSDT: { scheduleId: 'low', levelTicks: 50 } }
+    );
+    assert.deepEqual(
         parseCarriedState(Buffer.from('{"BTCUSDT":3}').toString('base64')),
         { BTCUSDT: 3 }
     );
     assert.throws(() => parseCarriedState('not-json'), /invalid JSON/);
     assert.throws(() => parseCarriedState('{"BTCUSDT":1.5}'), /invalid entry/);
+    assert.throws(
+        () => parseCarriedState('{"BTCUSDT":{"scheduleId":"low","levelTicks":1.5}}'),
+        /invalid entry/
+    );
 });
 
 test('applies Stobix WebSocket rate updates to the matching market candle', () => {

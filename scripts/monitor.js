@@ -14,7 +14,6 @@ const [REPOSITORY_OWNER, REPOSITORY_NAME] = (
     process.env.GITHUB_REPOSITORY || 'bandit201390/parser'
 ).split('/');
 const PAGES_URL = process.env.PAGES_URL || `https://${REPOSITORY_OWNER}.github.io/${REPOSITORY_NAME}/`;
-const FIRST_ALERT_THRESHOLD = 2;
 const REQUEST_CONCURRENCY = 4;
 const RETRIES = 4;
 const DEFAULT_MONITOR_DURATION_MS = 340 * 60_000;
@@ -97,7 +96,13 @@ function parseCarriedState(value) {
     }
 
     for (const [symbol, level] of Object.entries(state)) {
-        if (!/^[A-Z0-9]+USDT$/.test(symbol) || !Number.isInteger(level) || level < 0) {
+        const validLegacyLevel = Number.isInteger(level) && level >= 0;
+        const validScheduledLevel = level &&
+            typeof level === 'object' &&
+            ['low', 'medium', 'high'].includes(level.scheduleId) &&
+            Number.isInteger(level.levelTicks) &&
+            level.levelTicks >= 0;
+        if (!/^[A-Z0-9]+USDT$/.test(symbol) || (!validLegacyLevel && !validScheduledLevel)) {
             throw new Error(`The carried monitor state has an invalid entry for ${symbol}`);
         }
     }
@@ -172,6 +177,7 @@ async function loadMarkets() {
 
     const { eligible, excluded } = filterMarketsByCommission(payload);
     const symbols = eligible.map((market) => market.symbol);
+    const eligibleBySymbol = new Map(eligible.map((market) => [market.symbol, market]));
     if (excluded.length > 0) {
         console.log(
             `Excluded ${excluded.length} market(s) with per-side commission above 0.1%: ` +
@@ -196,6 +202,7 @@ async function loadMarkets() {
                 const rate = ratesBySymbol.get(symbol);
                 return {
                     symbol: normalizeSymbol(symbol),
+                    commissionRate: eligibleBySymbol.get(symbol).commissionRate,
                     candles,
                     currentPrice: rate && Number.isFinite(Number(rate.p))
                         ? Number(rate.p)
@@ -233,6 +240,7 @@ function getCurrentMarketData(markets, now) {
         return {
             symbol: market.symbol,
             current_price: market.currentPrice,
+            commissionRate: market.commissionRate,
             volatilityValue: calculateVolatility(candles),
             priceChangePercent: candles.length && candles[0].open > 0
                 ? ((market.currentPrice - candles[0].open) / candles[0].open) * 100
@@ -459,24 +467,9 @@ async function runMonitor() {
         while (Date.now() < deadline) {
             const now = Date.now();
             const currentMarkets = getCurrentMarketData(markets, now);
-            const hasInitialState = Object.keys(alertState).length > 0;
-            const fallbackLevels = {};
-            if (!hasInitialState) {
-                for (const market of currentMarkets) {
-                    if (Number.isFinite(market.volatilityValue)) {
-                        fallbackLevels[market.symbol] = Math.max(
-                            FIRST_ALERT_THRESHOLD - 1,
-                            Math.floor(market.volatilityValue)
-                        );
-                    }
-                }
-            }
-
             const { alertState: nextState, alerts } = advanceAlertState(
                 currentMarkets,
-                alertState,
-                fallbackLevels,
-                FIRST_ALERT_THRESHOLD
+                alertState
             );
             const pendingKeys = new Set(pendingAlerts.map((alert) => `${alert.symbol}:${alert.level}`));
             for (const alert of alerts) {

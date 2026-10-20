@@ -14,7 +14,6 @@ const [REPOSITORY_OWNER, REPOSITORY_NAME] = REPOSITORY.split('/');
 const PAGES_URL = process.env.PAGES_URL || `https://${REPOSITORY_OWNER}.github.io/${REPOSITORY_NAME}/`;
 const REQUEST_CONCURRENCY = 4;
 const RETRIES = 4;
-const FIRST_ALERT_THRESHOLD = 2;
 
 async function fetchJson(url) {
     for (let attempt = 0; attempt <= RETRIES; attempt += 1) {
@@ -142,35 +141,6 @@ async function loadPreviousSnapshot() {
     }
 }
 
-function getPreviousMarketLevels(previousSnapshot) {
-    const levels = new Map();
-    if (!previousSnapshot) {
-        return levels;
-    }
-
-    for (const market of previousSnapshot.markets) {
-        if (Number.isFinite(market.volatilityValue)) {
-            levels.set(market.symbol, Math.max(
-                FIRST_ALERT_THRESHOLD - 1,
-                Math.floor(market.volatilityValue)
-            ));
-        }
-    }
-    return levels;
-}
-
-function makeFallbackAlertLevels(markets, previousSnapshot) {
-    const previousLevels = getPreviousMarketLevels(previousSnapshot);
-    const levels = { ...(previousSnapshot?.alertState || {}) };
-    for (const market of markets) {
-        if (!Number.isFinite(levels[market.symbol])) {
-            levels[market.symbol] = previousLevels.get(market.symbol)
-                ?? Math.max(FIRST_ALERT_THRESHOLD - 1, Math.floor(market.volatilityValue || 0));
-        }
-    }
-    return levels;
-}
-
 async function sendTelegramAlerts(alerts) {
     const token = process.env.TELEGRAM_BOT_TOKEN;
     const chatId = process.env.TELEGRAM_CHAT_ID;
@@ -224,6 +194,7 @@ async function main() {
 
     const { eligible, excluded } = filterMarketsByCommission(markets);
     const symbols = eligible.map((market) => market.symbol);
+    const eligibleBySymbol = new Map(eligible.map((market) => [market.symbol, market]));
     if (excluded.length > 0) {
         console.log(
             `Excluded ${excluded.length} market(s) with per-side commission above 0.1%: ` +
@@ -238,7 +209,10 @@ async function main() {
         REQUEST_CONCURRENCY,
         async (symbol) => {
             try {
-                return await loadMarket(symbol, startTime, endTime);
+                return {
+                    ...await loadMarket(symbol, startTime, endTime),
+                    commissionRate: eligibleBySymbol.get(symbol).commissionRate
+                };
             } catch (error) {
                 console.warn(`Unable to load ${symbol}: ${error.message}`);
                 return {
@@ -256,12 +230,9 @@ async function main() {
     }
 
     const previousSnapshot = await loadPreviousSnapshot();
-    const previousLevels = makeFallbackAlertLevels(results, previousSnapshot);
     const { alertState, alerts } = advanceAlertState(
         results,
-        previousSnapshot?.alertState || {},
-        previousLevels,
-        FIRST_ALERT_THRESHOLD
+        previousSnapshot?.alertState || {}
     );
     const telegramConfigured = Boolean(
         process.env.TELEGRAM_BOT_TOKEN && process.env.TELEGRAM_CHAT_ID

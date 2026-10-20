@@ -1,6 +1,38 @@
 const MARKET_DIRECTIONS = ['LONG', 'SHORT'];
 const MARKET_FEE_TYPES = ['entryFee', 'closeFee'];
 const MAX_PER_SIDE_COMMISSION = 0.001;
+const ALERT_SCHEDULES = {
+    low: { firstThresholdTicks: 50, stepTicks: 10 },
+    medium: { firstThresholdTicks: 75, stepTicks: 25 },
+    high: { firstThresholdTicks: 100, stepTicks: 50 }
+};
+const VOLATILITY_TICKS_PER_PERCENT = 100;
+
+function getAlertSchedule(commissionRate) {
+    if (!Number.isFinite(commissionRate) ||
+        commissionRate < 0 ||
+        commissionRate > MAX_PER_SIDE_COMMISSION) {
+        throw new Error(`Cannot select alert thresholds for invalid commission rate ${commissionRate}`);
+    }
+    if (commissionRate < 0.0005) {
+        return { id: 'low', ...ALERT_SCHEDULES.low };
+    }
+    if (commissionRate < MAX_PER_SIDE_COMMISSION) {
+        return { id: 'medium', ...ALERT_SCHEDULES.medium };
+    }
+    return { id: 'high', ...ALERT_SCHEDULES.high };
+}
+
+function getThresholdTicks(volatility, schedule) {
+    const { firstThresholdTicks, stepTicks } = schedule;
+    if (volatility * VOLATILITY_TICKS_PER_PERCENT < firstThresholdTicks) {
+        return firstThresholdTicks - stepTicks;
+    }
+    const steps = Math.floor(
+        (volatility * VOLATILITY_TICKS_PER_PERCENT - firstThresholdTicks + 1e-9) / stepTicks
+    );
+    return firstThresholdTicks + steps * stepTicks;
+}
 
 function filterMarketsByCommission(markets, maxCommission = MAX_PER_SIDE_COMMISSION) {
     if (!Array.isArray(markets) || !Number.isFinite(maxCommission) || maxCommission < 0) {
@@ -38,7 +70,7 @@ function filterMarketsByCommission(markets, maxCommission = MAX_PER_SIDE_COMMISS
         if (maxMarketCommission > maxCommission) {
             excluded.push({ ...market, maxCommission: maxMarketCommission });
         } else {
-            eligible.push(market);
+            eligible.push({ ...market, commissionRate: maxMarketCommission });
         }
     }
 
@@ -120,43 +152,56 @@ function formatTelegramAlert(market) {
         `<a href="${escapeHtml(link)}">open on stobix</a>`;
 }
 
-function advanceAlertState(markets, previousLevels, fallbackLevels = {}, firstThreshold = 2) {
+function advanceAlertState(markets, previousLevels) {
     const alertState = {};
     const alerts = [];
 
     for (const market of markets) {
         const volatility = market.volatilityValue;
         if (!Number.isFinite(volatility)) {
-            if (Number.isFinite(previousLevels[market.symbol])) {
+            if (previousLevels[market.symbol] !== undefined) {
                 alertState[market.symbol] = previousLevels[market.symbol];
             }
             continue;
         }
 
-        const currentLevel = Math.floor(volatility);
-        const previousLevel = Number.isFinite(previousLevels[market.symbol])
-            ? previousLevels[market.symbol]
-            : Number.isFinite(fallbackLevels[market.symbol])
-                ? fallbackLevels[market.symbol]
-                : Math.max(firstThreshold - 1, currentLevel);
+        const schedule = getAlertSchedule(market.commissionRate);
+        const currentThresholdTicks = getThresholdTicks(volatility, schedule);
+        const storedState = previousLevels[market.symbol];
+        const previousThresholdTicks = storedState &&
+            typeof storedState === 'object' &&
+            storedState.scheduleId === schedule.id &&
+            Number.isInteger(storedState.levelTicks)
+            ? storedState.levelTicks
+            : getThresholdTicks(volatility, schedule);
 
-        if (currentLevel < firstThreshold) {
-            alertState[market.symbol] = firstThreshold - 1;
+        if (volatility * VOLATILITY_TICKS_PER_PERCENT < schedule.firstThresholdTicks) {
+            alertState[market.symbol] = {
+                scheduleId: schedule.id,
+                levelTicks: schedule.firstThresholdTicks - schedule.stepTicks
+            };
             continue;
         }
 
         for (
-            let level = Math.max(firstThreshold, previousLevel + 1);
-            level <= currentLevel;
-            level += 1
+            let thresholdTicks = Math.max(
+                schedule.firstThresholdTicks,
+                previousThresholdTicks + schedule.stepTicks
+            );
+            thresholdTicks <= currentThresholdTicks;
+            thresholdTicks += schedule.stepTicks
         ) {
+            const level = thresholdTicks / VOLATILITY_TICKS_PER_PERCENT;
             alerts.push({
                 symbol: market.symbol,
                 level,
                 message: formatTelegramAlert(market)
             });
         }
-        alertState[market.symbol] = currentLevel;
+        alertState[market.symbol] = {
+            scheduleId: schedule.id,
+            levelTicks: currentThresholdTicks
+        };
     }
 
     return { alertState, alerts };
@@ -168,5 +213,6 @@ module.exports = {
     calculateVolatility,
     filterMarketsByCommission,
     formatTelegramAlert,
+    getAlertSchedule,
     pruneCandles
 };

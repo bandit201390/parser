@@ -6,7 +6,7 @@ The GitHub Pages site displays the latest published snapshot. Opening the page l
 
 1. Make sure the repository has the `TELEGRAM_BOT_TOKEN` and `TELEGRAM_CHAT_ID` Actions secrets.
 2. Open **Actions** → **Monitor Stobix volatility continuously** → **Run workflow** and start it once from the default branch. Leave the internal `carry_state` input unchanged.
-3. The workflow subscribes to Stobix Futures rate updates and checks the rolling one-hour volatility once per minute. Telegram alerts are sent when a market reaches 2%, 3%, 4%, and each further whole-percent level. Each alert links the pair to Stobix and shows a green up arrow or red down arrow for the net price movement during that same hour.
+3. The workflow subscribes to Stobix Futures rate updates and checks the rolling one-hour volatility once per minute. Alert thresholds depend on the highest of the pair's LONG/SHORT entry/close commissions: 0.01–0.049% starts at 0.5% volatility and repeats every 0.1%; 0.05–0.099% starts at 0.75% and repeats every 0.25%; 0.1% starts at 1% and repeats every 0.5%. Each alert links the pair to Stobix and shows a green or red indicator for the net price movement during that same hour.
 4. To stop monitoring, cancel the active run in **Actions**. To resume it, run the workflow manually again.
 
 GitHub-hosted jobs have a maximum runtime. This workflow runs for about 5 hours 40 minutes, passes alert state to a successor run, and starts it automatically. GitHub Actions is not a permanent-service host, so restarts can have gaps and are not guaranteed to run without interruption. If a run fails before it starts its successor, restart the workflow manually.
