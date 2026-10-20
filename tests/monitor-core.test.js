@@ -60,7 +60,7 @@ test('alerts on each newly reached whole-percent level', () => {
     assert.equal(result.alertState.BTCUSDT, 4);
     assert.match(
         result.alerts[0].message,
-        /^🟢#BTCUSDT: 65000 1h volatility 4\.20% <a href="https:\/\/stobix\.com\/invite\/qdjlyh\?to=\/futures\/BTC\/USDT">open on stobix<\/a>$/
+        /^🟢#BTCUSDT: 65000 BUY 4\.20% <a href="https:\/\/stobix\.com\/invite\/qdjlyh\?to=\/futures\/BTC\/USDT">open on stobix<\/a>$/
     );
 });
 
@@ -104,7 +104,7 @@ test('formats Telegram alerts with the requested short English text and linked S
 
     assert.equal(
         message,
-        '🔴#FILUSDT: 5.9032 1h volatility 2.09% ' +
+        '🔴#FILUSDT: 5.9032 SELL 2.09% ' +
         '<a href="https://stobix.com/invite/qdjlyh?to=/futures/FIL/USDT">open on stobix</a>'
     );
 });
@@ -136,7 +136,7 @@ test('escapes dynamic values in linked Telegram alerts', () => {
     }, 2);
 
     assert.match(message, /stobix\.com\/invite\/qdjlyh\?to=\/futures\/A%26B\/USDT/);
-    assert.match(message, /#A&amp;BUSDT: 0\.000042 1h volatility 2\.50%/);
+    assert.match(message, /#A&amp;BUSDT: 0\.000042 BUY 2\.50%/);
     assert.match(message, /<a href="https:\/\/stobix\.com\/invite\/qdjlyh\?to=\/futures\/A%26B\/USDT">open on stobix<\/a>/);
 });
 

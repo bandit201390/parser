@@ -60,13 +60,13 @@ function formatTelegramAlert(market) {
     const link = `https://stobix.com/invite/qdjlyh?to=/futures/${encodeURIComponent(base)}/USDT`;
     const direction = Number.isFinite(market.priceChangePercent)
         ? market.priceChangePercent > 0
-            ? '🟢'
+            ? { emoji: '🟢', label: 'BUY' }
             : market.priceChangePercent < 0
-                ? '🔴'
-                : '⚪'
-        : '⚪';
+                ? { emoji: '🔴', label: 'SELL' }
+                : { emoji: '⚪', label: '1h volatility' }
+        : { emoji: '⚪', label: '1h volatility' };
 
-    return `${direction}#${escapeHtml(ticker)}: ${price} 1h volatility ${market.volatilityValue.toFixed(2)}% ` +
+    return `${direction.emoji}#${escapeHtml(ticker)}: ${price} ${direction.label} ${market.volatilityValue.toFixed(2)}% ` +
         `<a href="${escapeHtml(link)}">open on stobix</a>`;
 }
 
