@@ -2,9 +2,9 @@ const MARKET_DIRECTIONS = ['LONG', 'SHORT'];
 const MARKET_FEE_TYPES = ['entryFee', 'closeFee'];
 const MAX_PER_SIDE_COMMISSION = 0.001;
 const ALERT_SCHEDULES = {
-    low: { firstThresholdTicks: 50, stepTicks: 10 },
-    medium: { firstThresholdTicks: 75, stepTicks: 25 },
-    high: { firstThresholdTicks: 100, stepTicks: 50 }
+    low: { firstThresholdTicks: 75, stepTicks: 25 },
+    medium: { firstThresholdTicks: 100, stepTicks: 50 },
+    high: { firstThresholdTicks: 150, stepTicks: 75 }
 };
 const VOLATILITY_TICKS_PER_PERCENT = 100;
 
@@ -15,12 +15,12 @@ function getAlertSchedule(commissionRate) {
         throw new Error(`Cannot select alert thresholds for invalid commission rate ${commissionRate}`);
     }
     if (commissionRate < 0.0005) {
-        return { id: 'low', ...ALERT_SCHEDULES.low };
+        return { id: 'low-v2', ...ALERT_SCHEDULES.low };
     }
     if (commissionRate < MAX_PER_SIDE_COMMISSION) {
-        return { id: 'medium', ...ALERT_SCHEDULES.medium };
+        return { id: 'medium-v2', ...ALERT_SCHEDULES.medium };
     }
-    return { id: 'high', ...ALERT_SCHEDULES.high };
+    return { id: 'high-v2', ...ALERT_SCHEDULES.high };
 }
 
 function getThresholdTicks(volatility, schedule) {

@@ -99,7 +99,7 @@ function parseCarriedState(value) {
         const validLegacyLevel = Number.isInteger(level) && level >= 0;
         const validScheduledLevel = level &&
             typeof level === 'object' &&
-            ['low', 'medium', 'high'].includes(level.scheduleId) &&
+            ['low', 'medium', 'high', 'low-v2', 'medium-v2', 'high-v2'].includes(level.scheduleId) &&
             Number.isInteger(level.levelTicks) &&
             level.levelTicks >= 0;
         if (!/^[A-Z0-9]+USDT$/.test(symbol) || (!validLegacyLevel && !validScheduledLevel)) {
