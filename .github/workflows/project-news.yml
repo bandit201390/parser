@@ -1,0 +1,52 @@
+name: Send project news to Telegram
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  send-news:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Send project news to Telegram
+        env:
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+        run: |
+          node --input-type=module <<'NODE'
+          const token = process.env.TELEGRAM_BOT_TOKEN;
+          const chatId = process.env.TELEGRAM_CHAT_ID;
+          if (!token || !chatId) {
+            throw new Error('Telegram secrets are missing; configure TELEGRAM_BOT_TOKEN and TELEGRAM_CHAT_ID');
+          }
+
+          const text = [
+            '📰 Новости проекта',
+            '',
+            '• Пары с комиссией выше 0,1% исключены из мониторинга. Если комиссия станет 0,1% или ниже, пара вернётся.',
+            '• Порог уведомлений зависит от комиссии:',
+            '  — 0,01–0,049%: волатильность от 0,5%, шаг 0,1%;',
+            '  — 0,05–0,099%: от 0,75%, шаг 0,25%;',
+            '  — 0,1%: от 1%, шаг 0,5%.',
+            '• Раз в неделю проверяются новые и ушедшие пары, а также изменения комиссий. Отчёт приходит в Telegram.'
+          ].join('\n');
+
+          const response = await fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              chat_id: chatId,
+              text,
+              link_preview_options: { is_disabled: true }
+            }),
+            signal: AbortSignal.timeout(15000)
+          });
+          const result = await response.json();
+          if (!response.ok || result.ok !== true) {
+            throw new Error(`Telegram rejected project news: ${result.description || `HTTP ${response.status}`}`);
+          }
+          console.log('Project news sent to Telegram.');
+          NODE

@@ -18,3 +18,5 @@ Only USDT futures pairs with LONG and SHORT entry and close commissions all at o
 ## Weekly market and commission audit
 
 The **Weekly Stobix market and commission audit** workflow checks the futures market list every Monday at 09:00 UTC and can also be run manually. It compares newly listed and removed USDT pairs, and LONG/SHORT entry and close fees, then sends the changes (or a no-change summary) to Telegram. Fees are read from Stobix's `entryFee` and `closeFee` values and reported as percentages. The first run establishes the baseline without sending a report; subsequent runs compare against the saved `data/stobix-market-fees.json` file. The workflow requires the existing `TELEGRAM_BOT_TOKEN` and `TELEGRAM_CHAT_ID` Actions secrets and write access to the repository contents.
+
+The **Send project news to Telegram** workflow can be run manually to send a short summary of the commission filter, fee-based alert thresholds, and weekly audit to the configured Telegram chat.
