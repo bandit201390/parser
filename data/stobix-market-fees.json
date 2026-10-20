@@ -1,0 +1,875 @@
+{
+  "generatedAt": "2026-10-20T00:49:21.318Z",
+  "markets": {
+    "AAVEUSDT": {
+      "LONG": {
+        "entryFee": 0.001,
+        "closeFee": 0.001
+      },
+      "SHORT": {
+        "entryFee": 0.001,
+        "closeFee": 0.001
+      }
+    },
+    "ADAUSDT": {
+      "LONG": {
+        "entryFee": 0.001,
+        "closeFee": 0.001
+      },
+      "SHORT": {
+        "entryFee": 0.001,
+        "closeFee": 0.001
+      }
+    },
+    "ALGOUSDT": {
+      "LONG": {
+        "entryFee": 0.001,
+        "closeFee": 0.001
+      },
+      "SHORT": {
+        "entryFee": 0.001,
+        "closeFee": 0.001
+      }
+    },
+    "AMDUSDT": {
+      "LONG": {
+        "entryFee": 0.0005,
+        "closeFee": 0.0005
+      },
+      "SHORT": {
+        "entryFee": 0.0005,
+        "closeFee": 0.0005
+      }
+    },
+    "APEUSDT": {
+      "LONG": {
+        "entryFee": 0.001,
+        "closeFee": 0.001
+      },
+      "SHORT": {
+        "entryFee": 0.001,
+        "closeFee": 0.001
+      }
+    },
+    "APTUSDT": {
+      "LONG": {
+        "entryFee": 0.001,
+        "closeFee": 0.001
+      },
+      "SHORT": {
+        "entryFee": 0.001,
+        "closeFee": 0.001
+      }
+    },
+    "ARBUSDT": {
+      "LONG": {
+        "entryFee": 0.001,
+        "closeFee": 0.001
+      },
+      "SHORT": {
+        "entryFee": 0.001,
+        "closeFee": 0.001
+      }
+    },
+    "ASTERUSDT": {
+      "LONG": {
+        "entryFee": 0.001,
+        "closeFee": 0.001
+      },
+      "SHORT": {
+        "entryFee": 0.001,
+        "closeFee": 0.001
+      }
+    },
+    "ATOMUSDT": {
+      "LONG": {
+        "entryFee": 0.001,
+        "closeFee": 0.001
+      },
+      "SHORT": {
+        "entryFee": 0.001,
+        "closeFee": 0.001
+      }
+    },
+    "AVAXUSDT": {
+      "LONG": {
+        "entryFee": 0.001,
+        "closeFee": 0.001
+      },
+      "SHORT": {
+        "entryFee": 0.001,
+        "closeFee": 0.001
+      }
+    },
+    "BCHUSDT": {
+      "LONG": {
+        "entryFee": 0.001,
+        "closeFee": 0.001
+      },
+      "SHORT": {
+        "entryFee": 0.001,
+        "closeFee": 0.001
+      }
+    },
+    "BNBUSDT": {
+      "LONG": {
+        "entryFee": 0.001,
+        "closeFee": 0.001
+      },
+      "SHORT": {
+        "entryFee": 0.001,
+        "closeFee": 0.001
+      }
+    },
+    "BONKUSDT": {
+      "LONG": {
+        "entryFee": 0.001,
+        "closeFee": 0.001
+      },
+      "SHORT": {
+        "entryFee": 0.001,
+        "closeFee": 0.001
+      }
+    },
+    "BRENTUSDT": {
+      "LONG": {
+        "entryFee": 0.0005,
+        "closeFee": 0.0005
+      },
+      "SHORT": {
+        "entryFee": 0.0005,
+        "closeFee": 0.0005
+      }
+    },
+    "BTCUSDT": {
+      "LONG": {
+        "entryFee": 0.0006,
+        "closeFee": 0.0006
+      },
+      "SHORT": {
+        "entryFee": 0.0006,
+        "closeFee": 0.0006
+      }
+    },
+    "CAKEUSDT": {
+      "LONG": {
+        "entryFee": 0.001,
+        "closeFee": 0.001
+      },
+      "SHORT": {
+        "entryFee": 0.001,
+        "closeFee": 0.001
+      }
+    },
+    "CRVUSDT": {
+      "LONG": {
+        "entryFee": 0.001,
+        "closeFee": 0.001
+      },
+      "SHORT": {
+        "entryFee": 0.001,
+        "closeFee": 0.001
+      }
+    },
+    "DASHUSDT": {
+      "LONG": {
+        "entryFee": 0.001,
+        "closeFee": 0.001
+      },
+      "SHORT": {
+        "entryFee": 0.001,
+        "closeFee": 0.001
+      }
+    },
+    "DOGEUSDT": {
+      "LONG": {
+        "entryFee": 0.001,
+        "closeFee": 0.001
+      },
+      "SHORT": {
+        "entryFee": 0.001,
+        "closeFee": 0.001
+      }
+    },
+    "DOTUSDT": {
+      "LONG": {
+        "entryFee": 0.001,
+        "closeFee": 0.001
+      },
+      "SHORT": {
+        "entryFee": 0.001,
+        "closeFee": 0.001
+      }
+    },
+    "ENAUSDT": {
+      "LONG": {
+        "entryFee": 0.001,
+        "closeFee": 0.001
+      },
+      "SHORT": {
+        "entryFee": 0.001,
+        "closeFee": 0.001
+      }
+    },
+    "ENSUSDT": {
+      "LONG": {
+        "entryFee": 0.001,
+        "closeFee": 0.001
+      },
+      "SHORT": {
+        "entryFee": 0.001,
+        "closeFee": 0.001
+      }
+    },
+    "ETHFIUSDT": {
+      "LONG": {
+        "entryFee": 0.0015,
+        "closeFee": 0.0015
+      },
+      "SHORT": {
+        "entryFee": 0.0015,
+        "closeFee": 0.0015
+      }
+    },
+    "ETHUSDT": {
+      "LONG": {
+        "entryFee": 0.0005,
+        "closeFee": 0.0005
+      },
+      "SHORT": {
+        "entryFee": 0.0005,
+        "closeFee": 0.0005
+      }
+    },
+    "FETUSDT": {
+      "LONG": {
+        "entryFee": 0.001,
+        "closeFee": 0.001
+      },
+      "SHORT": {
+        "entryFee": 0.001,
+        "closeFee": 0.001
+      }
+    },
+    "FFUSDT": {
+      "LONG": {
+        "entryFee": 0.001,
+        "closeFee": 0.001
+      },
+      "SHORT": {
+        "entryFee": 0.001,
+        "closeFee": 0.001
+      }
+    },
+    "FILUSDT": {
+      "LONG": {
+        "entryFee": 0.001,
+        "closeFee": 0.001
+      },
+      "SHORT": {
+        "entryFee": 0.001,
+        "closeFee": 0.001
+      }
+    },
+    "FLOKIUSDT": {
+      "LONG": {
+        "entryFee": 0.001,
+        "closeFee": 0.001
+      },
+      "SHORT": {
+        "entryFee": 0.001,
+        "closeFee": 0.001
+      }
+    },
+    "FORMUSDT": {
+      "LONG": {
+        "entryFee": 0.0015,
+        "closeFee": 0.0015
+      },
+      "SHORT": {
+        "entryFee": 0.0015,
+        "closeFee": 0.0015
+      }
+    },
+    "GALAUSDT": {
+      "LONG": {
+        "entryFee": 0.001,
+        "closeFee": 0.001
+      },
+      "SHORT": {
+        "entryFee": 0.001,
+        "closeFee": 0.001
+      }
+    },
+    "GRTUSDT": {
+      "LONG": {
+        "entryFee": 0.001,
+        "closeFee": 0.001
+      },
+      "SHORT": {
+        "entryFee": 0.001,
+        "closeFee": 0.001
+      }
+    },
+    "HBARUSDT": {
+      "LONG": {
+        "entryFee": 0.001,
+        "closeFee": 0.001
+      },
+      "SHORT": {
+        "entryFee": 0.001,
+        "closeFee": 0.001
+      }
+    },
+    "HYPEUSDT": {
+      "LONG": {
+        "entryFee": 0.001,
+        "closeFee": 0.001
+      },
+      "SHORT": {
+        "entryFee": 0.001,
+        "closeFee": 0.001
+      }
+    },
+    "ICPUSDT": {
+      "LONG": {
+        "entryFee": 0.001,
+        "closeFee": 0.001
+      },
+      "SHORT": {
+        "entryFee": 0.001,
+        "closeFee": 0.001
+      }
+    },
+    "IMXUSDT": {
+      "LONG": {
+        "entryFee": 0.001,
+        "closeFee": 0.001
+      },
+      "SHORT": {
+        "entryFee": 0.001,
+        "closeFee": 0.001
+      }
+    },
+    "INJUSDT": {
+      "LONG": {
+        "entryFee": 0.001,
+        "closeFee": 0.001
+      },
+      "SHORT": {
+        "entryFee": 0.001,
+        "closeFee": 0.001
+      }
+    },
+    "IOTAUSDT": {
+      "LONG": {
+        "entryFee": 0.001,
+        "closeFee": 0.001
+      },
+      "SHORT": {
+        "entryFee": 0.001,
+        "closeFee": 0.001
+      }
+    },
+    "JUPUSDT": {
+      "LONG": {
+        "entryFee": 0.001,
+        "closeFee": 0.001
+      },
+      "SHORT": {
+        "entryFee": 0.001,
+        "closeFee": 0.001
+      }
+    },
+    "LDOUSDT": {
+      "LONG": {
+        "entryFee": 0.001,
+        "closeFee": 0.001
+      },
+      "SHORT": {
+        "entryFee": 0.001,
+        "closeFee": 0.001
+      }
+    },
+    "LINEAUSDT": {
+      "LONG": {
+        "entryFee": 0.001,
+        "closeFee": 0.001
+      },
+      "SHORT": {
+        "entryFee": 0.001,
+        "closeFee": 0.001
+      }
+    },
+    "LINKUSDT": {
+      "LONG": {
+        "entryFee": 0.001,
+        "closeFee": 0.001
+      },
+      "SHORT": {
+        "entryFee": 0.001,
+        "closeFee": 0.001
+      }
+    },
+    "LPTUSDT": {
+      "LONG": {
+        "entryFee": 0.002,
+        "closeFee": 0.002
+      },
+      "SHORT": {
+        "entryFee": 0.002,
+        "closeFee": 0.002
+      }
+    },
+    "LTCUSDT": {
+      "LONG": {
+        "entryFee": 0.001,
+        "closeFee": 0.001
+      },
+      "SHORT": {
+        "entryFee": 0.001,
+        "closeFee": 0.001
+      }
+    },
+    "MNTUSDT": {
+      "LONG": {
+        "entryFee": 0.001,
+        "closeFee": 0.001
+      },
+      "SHORT": {
+        "entryFee": 0.001,
+        "closeFee": 0.001
+      }
+    },
+    "MONUSDT": {
+      "LONG": {
+        "entryFee": 0.001,
+        "closeFee": 0.001
+      },
+      "SHORT": {
+        "entryFee": 0.001,
+        "closeFee": 0.001
+      }
+    },
+    "MSTRUSDT": {
+      "LONG": {
+        "entryFee": 0.0005,
+        "closeFee": 0.0005
+      },
+      "SHORT": {
+        "entryFee": 0.0005,
+        "closeFee": 0.0005
+      }
+    },
+    "NEARUSDT": {
+      "LONG": {
+        "entryFee": 0.001,
+        "closeFee": 0.001
+      },
+      "SHORT": {
+        "entryFee": 0.001,
+        "closeFee": 0.001
+      }
+    },
+    "NVDAUSDT": {
+      "LONG": {
+        "entryFee": 0.0005,
+        "closeFee": 0.0005
+      },
+      "SHORT": {
+        "entryFee": 0.0005,
+        "closeFee": 0.0005
+      }
+    },
+    "ONDOUSDT": {
+      "LONG": {
+        "entryFee": 0.001,
+        "closeFee": 0.001
+      },
+      "SHORT": {
+        "entryFee": 0.001,
+        "closeFee": 0.001
+      }
+    },
+    "OPUSDT": {
+      "LONG": {
+        "entryFee": 0.002,
+        "closeFee": 0.002
+      },
+      "SHORT": {
+        "entryFee": 0.002,
+        "closeFee": 0.002
+      }
+    },
+    "PENDLEUSDT": {
+      "LONG": {
+        "entryFee": 0.002,
+        "closeFee": 0.002
+      },
+      "SHORT": {
+        "entryFee": 0.002,
+        "closeFee": 0.002
+      }
+    },
+    "PENGUUSDT": {
+      "LONG": {
+        "entryFee": 0.002,
+        "closeFee": 0.002
+      },
+      "SHORT": {
+        "entryFee": 0.002,
+        "closeFee": 0.002
+      }
+    },
+    "PEPEUSDT": {
+      "LONG": {
+        "entryFee": 0.001,
+        "closeFee": 0.001
+      },
+      "SHORT": {
+        "entryFee": 0.001,
+        "closeFee": 0.001
+      }
+    },
+    "POLUSDT": {
+      "LONG": {
+        "entryFee": 0.001,
+        "closeFee": 0.001
+      },
+      "SHORT": {
+        "entryFee": 0.001,
+        "closeFee": 0.001
+      }
+    },
+    "PUMPUSDT": {
+      "LONG": {
+        "entryFee": 0.001,
+        "closeFee": 0.001
+      },
+      "SHORT": {
+        "entryFee": 0.001,
+        "closeFee": 0.001
+      }
+    },
+    "PYTHUSDT": {
+      "LONG": {
+        "entryFee": 0.002,
+        "closeFee": 0.002
+      },
+      "SHORT": {
+        "entryFee": 0.002,
+        "closeFee": 0.002
+      }
+    },
+    "RAYUSDT": {
+      "LONG": {
+        "entryFee": 0.002,
+        "closeFee": 0.002
+      },
+      "SHORT": {
+        "entryFee": 0.002,
+        "closeFee": 0.002
+      }
+    },
+    "RENDERUSDT": {
+      "LONG": {
+        "entryFee": 0.0015,
+        "closeFee": 0.0015
+      },
+      "SHORT": {
+        "entryFee": 0.0015,
+        "closeFee": 0.0015
+      }
+    },
+    "SANDUSDT": {
+      "LONG": {
+        "entryFee": 0.001,
+        "closeFee": 0.001
+      },
+      "SHORT": {
+        "entryFee": 0.001,
+        "closeFee": 0.001
+      }
+    },
+    "SEIUSDT": {
+      "LONG": {
+        "entryFee": 0.001,
+        "closeFee": 0.001
+      },
+      "SHORT": {
+        "entryFee": 0.001,
+        "closeFee": 0.001
+      }
+    },
+    "SHIBUSDT": {
+      "LONG": {
+        "entryFee": 0.001,
+        "closeFee": 0.001
+      },
+      "SHORT": {
+        "entryFee": 0.001,
+        "closeFee": 0.001
+      }
+    },
+    "SKHYNIXUSDT": {
+      "LONG": {
+        "entryFee": 0.0005,
+        "closeFee": 0.0005
+      },
+      "SHORT": {
+        "entryFee": 0.0005,
+        "closeFee": 0.0005
+      }
+    },
+    "SNXUSDT": {
+      "LONG": {
+        "entryFee": 0.0015,
+        "closeFee": 0.0015
+      },
+      "SHORT": {
+        "entryFee": 0.0015,
+        "closeFee": 0.0015
+      }
+    },
+    "SOLUSDT": {
+      "LONG": {
+        "entryFee": 0.0005,
+        "closeFee": 0.0005
+      },
+      "SHORT": {
+        "entryFee": 0.0005,
+        "closeFee": 0.0005
+      }
+    },
+    "SPCXUSDT": {
+      "LONG": {
+        "entryFee": 0.0005,
+        "closeFee": 0.0005
+      },
+      "SHORT": {
+        "entryFee": 0.0005,
+        "closeFee": 0.0005
+      }
+    },
+    "STRKUSDT": {
+      "LONG": {
+        "entryFee": 0.0015,
+        "closeFee": 0.0015
+      },
+      "SHORT": {
+        "entryFee": 0.0015,
+        "closeFee": 0.0015
+      }
+    },
+    "STXUSDT": {
+      "LONG": {
+        "entryFee": 0.001,
+        "closeFee": 0.001
+      },
+      "SHORT": {
+        "entryFee": 0.001,
+        "closeFee": 0.001
+      }
+    },
+    "SUIUSDT": {
+      "LONG": {
+        "entryFee": 0.001,
+        "closeFee": 0.001
+      },
+      "SHORT": {
+        "entryFee": 0.001,
+        "closeFee": 0.001
+      }
+    },
+    "SUSDT": {
+      "LONG": {
+        "entryFee": 0.002,
+        "closeFee": 0.002
+      },
+      "SHORT": {
+        "entryFee": 0.002,
+        "closeFee": 0.002
+      }
+    },
+    "TAOUSDT": {
+      "LONG": {
+        "entryFee": 0.001,
+        "closeFee": 0.001
+      },
+      "SHORT": {
+        "entryFee": 0.001,
+        "closeFee": 0.001
+      }
+    },
+    "TIAUSDT": {
+      "LONG": {
+        "entryFee": 0.002,
+        "closeFee": 0.002
+      },
+      "SHORT": {
+        "entryFee": 0.002,
+        "closeFee": 0.002
+      }
+    },
+    "TRUMPUSDT": {
+      "LONG": {
+        "entryFee": 0.001,
+        "closeFee": 0.001
+      },
+      "SHORT": {
+        "entryFee": 0.001,
+        "closeFee": 0.001
+      }
+    },
+    "TRXUSDT": {
+      "LONG": {
+        "entryFee": 0.001,
+        "closeFee": 0.001
+      },
+      "SHORT": {
+        "entryFee": 0.001,
+        "closeFee": 0.001
+      }
+    },
+    "TURBOUSDT": {
+      "LONG": {
+        "entryFee": 0.002,
+        "closeFee": 0.002
+      },
+      "SHORT": {
+        "entryFee": 0.002,
+        "closeFee": 0.002
+      }
+    },
+    "TWTUSDT": {
+      "LONG": {
+        "entryFee": 0.001,
+        "closeFee": 0.001
+      },
+      "SHORT": {
+        "entryFee": 0.001,
+        "closeFee": 0.001
+      }
+    },
+    "UNIUSDT": {
+      "LONG": {
+        "entryFee": 0.001,
+        "closeFee": 0.001
+      },
+      "SHORT": {
+        "entryFee": 0.001,
+        "closeFee": 0.001
+      }
+    },
+    "WIFUSDT": {
+      "LONG": {
+        "entryFee": 0.002,
+        "closeFee": 0.002
+      },
+      "SHORT": {
+        "entryFee": 0.002,
+        "closeFee": 0.002
+      }
+    },
+    "WLDUSDT": {
+      "LONG": {
+        "entryFee": 0.001,
+        "closeFee": 0.001
+      },
+      "SHORT": {
+        "entryFee": 0.001,
+        "closeFee": 0.001
+      }
+    },
+    "WLFIUSDT": {
+      "LONG": {
+        "entryFee": 0.001,
+        "closeFee": 0.001
+      },
+      "SHORT": {
+        "entryFee": 0.001,
+        "closeFee": 0.001
+      }
+    },
+    "WTIUSDT": {
+      "LONG": {
+        "entryFee": 0.0005,
+        "closeFee": 0.0005
+      },
+      "SHORT": {
+        "entryFee": 0.0005,
+        "closeFee": 0.0005
+      }
+    },
+    "XAGUSDT": {
+      "LONG": {
+        "entryFee": 0.0002,
+        "closeFee": 0.0001
+      },
+      "SHORT": {
+        "entryFee": 0.0002,
+        "closeFee": 0.0001
+      }
+    },
+    "XAUUSDT": {
+      "LONG": {
+        "entryFee": 0.0002,
+        "closeFee": 0.0001
+      },
+      "SHORT": {
+        "entryFee": 0.0002,
+        "closeFee": 0.0001
+      }
+    },
+    "XLMUSDT": {
+      "LONG": {
+        "entryFee": 0.001,
+        "closeFee": 0.001
+      },
+      "SHORT": {
+        "entryFee": 0.001,
+        "closeFee": 0.001
+      }
+    },
+    "XPLUSDT": {
+      "LONG": {
+        "entryFee": 0.001,
+        "closeFee": 0.001
+      },
+      "SHORT": {
+        "entryFee": 0.001,
+        "closeFee": 0.001
+      }
+    },
+    "XRPUSDT": {
+      "LONG": {
+        "entryFee": 0.001,
+        "closeFee": 0.001
+      },
+      "SHORT": {
+        "entryFee": 0.001,
+        "closeFee": 0.001
+      }
+    },
+    "ZECUSDT": {
+      "LONG": {
+        "entryFee": 0.001,
+        "closeFee": 0.001
+      },
+      "SHORT": {
+        "entryFee": 0.001,
+        "closeFee": 0.001
+      }
+    },
+    "ZENUSDT": {
+      "LONG": {
+        "entryFee": 0.0015,
+        "closeFee": 0.0015
+      },
+      "SHORT": {
+        "entryFee": 0.0015,
+        "closeFee": 0.0015
+      }
+    }
+  }
+}
