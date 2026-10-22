@@ -3,7 +3,8 @@ const path = require('node:path');
 const {
     advanceAlertState,
     calculateVolatility,
-    filterMarketsByCommission
+    filterMarketsByCommission,
+    markAlertsSent
 } = require('./monitor-core');
 
 const API_URL = 'https://api.stobix.com';
@@ -234,12 +235,16 @@ async function main() {
         results,
         previousSnapshot?.alertState || {}
     );
+    let snapshotAlertState = alertState;
     const telegramConfigured = Boolean(
         process.env.TELEGRAM_BOT_TOKEN && process.env.TELEGRAM_CHAT_ID
     );
     if (telegramConfigured) {
         if (alerts.length > 0) {
-            await sendTelegramAlerts(alerts);
+            const sent = await sendTelegramAlerts(alerts);
+            if (sent) {
+                snapshotAlertState = markAlertsSent(alertState, alerts);
+            }
         } else {
             console.log('Telegram alerts are configured; no new volatility thresholds were crossed.');
         }
@@ -254,7 +259,7 @@ async function main() {
         generatedAt: endTime.toISOString(),
         periodStart: startTime.toISOString(),
         periodEnd: endTime.toISOString(),
-        alertState,
+        alertState: snapshotAlertState,
         markets: results.sort((a, b) => {
             if (a.volatilityValue === null) return 1;
             if (b.volatilityValue === null) return -1;

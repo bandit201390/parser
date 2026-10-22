@@ -6,6 +6,7 @@ const {
     advanceAlertState,
     calculateVolatility,
     filterMarketsByCommission,
+    markAlertsSent,
     pruneCandles
 } = require('./monitor-core');
 
@@ -101,7 +102,9 @@ function parseCarriedState(value) {
             typeof level === 'object' &&
             ['low', 'medium', 'high', 'low-v2', 'medium-v2', 'high-v2'].includes(level.scheduleId) &&
             Number.isInteger(level.levelTicks) &&
-            level.levelTicks >= 0;
+            level.levelTicks >= 0 &&
+            (level.lastDirection === undefined ||
+                ['BUY', 'SELL', 'NEUTRAL'].includes(level.lastDirection));
         if (!/^[A-Z0-9]+USDT$/.test(symbol) || (!validLegacyLevel && !validScheduledLevel)) {
             throw new Error(`The carried monitor state has an invalid entry for ${symbol}`);
         }
@@ -471,9 +474,9 @@ async function runMonitor() {
                 currentMarkets,
                 alertState
             );
-            const pendingKeys = new Set(pendingAlerts.map((alert) => `${alert.symbol}:${alert.level}`));
+            const pendingKeys = new Set(pendingAlerts.map((alert) => `${alert.symbol}:${alert.direction}`));
             for (const alert of alerts) {
-                const key = `${alert.symbol}:${alert.level}`;
+                const key = `${alert.symbol}:${alert.direction}`;
                 if (!pendingKeys.has(key)) {
                     pendingAlerts.push(alert);
                     pendingKeys.add(key);
@@ -482,7 +485,7 @@ async function runMonitor() {
 
             try {
                 await sendTelegramAlerts(pendingAlerts);
-                alertState = nextState;
+                alertState = markAlertsSent(nextState, pendingAlerts);
                 pendingAlerts = [];
             } catch (error) {
                 console.error(`Telegram alert delivery failed; will retry next minute: ${error.message}`);

@@ -7,6 +7,7 @@ const {
     filterMarketsByCommission,
     formatTelegramAlert,
     getAlertSchedule,
+    markAlertsSent,
     pruneCandles
 } = require('../scripts/monitor-core');
 const { handleRatesUpdate, parseCarriedState } = require('../scripts/monitor');
@@ -132,8 +133,89 @@ test('alerts at 1% and then every 0.5% for medium commission pairs', () => {
         [{ symbol: 'BTCUSDT', current_price: 1, commissionRate: 0.0006, volatilityValue: 2.1 }],
         { BTCUSDT: { scheduleId: 'medium-v2', levelTicks: 50 } }
     );
-    assert.deepEqual(result.alerts.map((alert) => alert.level), [1, 1.5, 2]);
+    assert.deepEqual(result.alerts.map((alert) => alert.level), [1]);
     assert.deepEqual(result.alertState.BTCUSDT, { scheduleId: 'medium-v2', levelTicks: 200 });
+});
+
+test('suppresses repeated same-direction alerts and allows the next opposite direction', () => {
+    const market = {
+        symbol: 'BTCUSDT',
+        current_price: 65000,
+        commissionRate: 0.001,
+        volatilityValue: 3,
+        priceChangePercent: 1
+    };
+    const first = advanceAlertState([market], {
+        BTCUSDT: { scheduleId: 'high-v2', levelTicks: 150 }
+    });
+    assert.deepEqual(first.alerts.map((alert) => alert.level), [2.25]);
+    const afterFirstSend = markAlertsSent(first.alertState, first.alerts);
+    assert.equal(afterFirstSend.BTCUSDT.lastDirection, 'BUY');
+
+    const repeatedBuy = advanceAlertState([{
+        ...market,
+        volatilityValue: 3.8
+    }], afterFirstSend);
+    assert.deepEqual(repeatedBuy.alerts, []);
+    assert.equal(repeatedBuy.alertState.BTCUSDT.levelTicks, 375);
+    assert.equal(repeatedBuy.alertState.BTCUSDT.lastDirection, 'BUY');
+
+    const sell = advanceAlertState([{
+        ...market,
+        volatilityValue: 4.6,
+        priceChangePercent: -0.2
+    }], repeatedBuy.alertState);
+    assert.deepEqual(sell.alerts.map((alert) => alert.level), [4.5]);
+    const afterSell = markAlertsSent(sell.alertState, sell.alerts);
+    assert.equal(afterSell.BTCUSDT.lastDirection, 'SELL');
+
+    const repeatedSell = advanceAlertState([{
+        ...market,
+        volatilityValue: 5.4,
+        priceChangePercent: -0.5
+    }], afterSell);
+    assert.deepEqual(repeatedSell.alerts, []);
+    assert.equal(repeatedSell.alertState.BTCUSDT.lastDirection, 'SELL');
+});
+
+test('allows a new signal when direction changes back after an intervening opposite signal', () => {
+    const market = {
+        symbol: 'BTCUSDT',
+        current_price: 1,
+        commissionRate: 0.0005,
+        volatilityValue: 1.5,
+        priceChangePercent: -1
+    };
+    const previous = { BTCUSDT: { scheduleId: 'medium-v2', levelTicks: 100, lastDirection: 'BUY' } };
+    const result = advanceAlertState([market], previous);
+
+    assert.equal(result.alerts.length, 1);
+    const afterSell = markAlertsSent(result.alertState, result.alerts);
+    assert.equal(afterSell.BTCUSDT.lastDirection, 'SELL');
+
+    const buyAgain = advanceAlertState([{
+        ...market,
+        volatilityValue: 2,
+        priceChangePercent: 0.5
+    }], afterSell);
+    assert.equal(buyAgain.alerts.length, 1);
+    assert.equal(markAlertsSent(buyAgain.alertState, buyAgain.alerts).BTCUSDT.lastDirection, 'BUY');
+});
+
+test('records a direction only after alerts have been confirmed sent', () => {
+    const result = advanceAlertState([{
+        symbol: 'BTCUSDT',
+        current_price: 1,
+        commissionRate: 0.001,
+        volatilityValue: 1.5,
+        priceChangePercent: 1
+    }], { BTCUSDT: { scheduleId: 'high-v2', levelTicks: 75 } });
+    assert.equal(result.alerts.length, 1);
+    assert.equal(result.alertState.BTCUSDT.lastDirection, undefined);
+    assert.equal(
+        markAlertsSent(result.alertState, result.alerts).BTCUSDT.lastDirection,
+        'BUY'
+    );
 });
 
 test('rearms at the start of the schedule after volatility drops below its first threshold', () => {
@@ -207,8 +289,8 @@ test('escapes dynamic values in linked Telegram alerts', () => {
 test('parses carried alert state and rejects malformed state', () => {
     assert.deepEqual(parseCarriedState('{"BTCUSDT":3}'), { BTCUSDT: 3 });
     assert.deepEqual(
-        parseCarriedState('{"BTCUSDT":{"scheduleId":"low-v2","levelTicks":50}}'),
-        { BTCUSDT: { scheduleId: 'low-v2', levelTicks: 50 } }
+        parseCarriedState('{"BTCUSDT":{"scheduleId":"low-v2","levelTicks":50,"lastDirection":"BUY"}}'),
+        { BTCUSDT: { scheduleId: 'low-v2', levelTicks: 50, lastDirection: 'BUY' } }
     );
     assert.deepEqual(
         parseCarriedState(Buffer.from('{"BTCUSDT":3}').toString('base64')),
@@ -218,6 +300,10 @@ test('parses carried alert state and rejects malformed state', () => {
     assert.throws(() => parseCarriedState('{"BTCUSDT":1.5}'), /invalid entry/);
     assert.throws(
         () => parseCarriedState('{"BTCUSDT":{"scheduleId":"low-v2","levelTicks":1.5}}'),
+        /invalid entry/
+    );
+    assert.throws(
+        () => parseCarriedState('{"BTCUSDT":{"scheduleId":"low-v2","levelTicks":50,"lastDirection":"UP"}}'),
         /invalid entry/
     );
 });

@@ -129,6 +129,13 @@ function escapeHtml(value) {
         .replace(/"/g, '&quot;');
 }
 
+function getAlertDirection(market) {
+    if (!Number.isFinite(market.priceChangePercent) || market.priceChangePercent === 0) {
+        return 'NEUTRAL';
+    }
+    return market.priceChangePercent > 0 ? 'BUY' : 'SELL';
+}
+
 function formatTelegramAlert(market) {
     const ticker = market.symbol;
     const base = ticker.replace(/USDT$/, '');
@@ -140,13 +147,11 @@ function formatTelegramAlert(market) {
         maximumFractionDigits: 8
     });
     const link = `https://stobix.com/invite/qdjlyh?to=/futures/${encodeURIComponent(base)}/USDT`;
-    const direction = Number.isFinite(market.priceChangePercent)
-        ? market.priceChangePercent > 0
-            ? { emoji: '🟢', label: 'BUY' }
-            : market.priceChangePercent < 0
-                ? { emoji: '🔴', label: 'SELL' }
-                : { emoji: '⚪', label: '1h volatility' }
-        : { emoji: '⚪', label: '1h volatility' };
+    const direction = {
+        BUY: { emoji: '🟢', label: 'BUY' },
+        SELL: { emoji: '🔴', label: 'SELL' },
+        NEUTRAL: { emoji: '⚪', label: '1h volatility' }
+    }[getAlertDirection(market)];
 
     return `${direction.emoji}#${escapeHtml(ticker)}: ${price} ${direction.label} ${market.volatilityValue.toFixed(2)}% ` +
         `<a href="${escapeHtml(link)}">open on stobix</a>`;
@@ -174,11 +179,18 @@ function advanceAlertState(markets, previousLevels) {
             Number.isInteger(storedState.levelTicks)
             ? storedState.levelTicks
             : getThresholdTicks(volatility, schedule);
+        const lastSentDirection = storedState &&
+            typeof storedState === 'object' &&
+            ['BUY', 'SELL', 'NEUTRAL'].includes(storedState.lastDirection)
+            ? storedState.lastDirection
+            : undefined;
+        let lastCandidateDirection = lastSentDirection;
 
         if (volatility * VOLATILITY_TICKS_PER_PERCENT < schedule.firstThresholdTicks) {
             alertState[market.symbol] = {
                 scheduleId: schedule.id,
-                levelTicks: schedule.firstThresholdTicks - schedule.stepTicks
+                levelTicks: schedule.firstThresholdTicks - schedule.stepTicks,
+                ...(lastSentDirection ? { lastDirection: lastSentDirection } : {})
             };
             continue;
         }
@@ -192,19 +204,37 @@ function advanceAlertState(markets, previousLevels) {
             thresholdTicks += schedule.stepTicks
         ) {
             const level = thresholdTicks / VOLATILITY_TICKS_PER_PERCENT;
-            alerts.push({
-                symbol: market.symbol,
-                level,
-                message: formatTelegramAlert(market)
-            });
+            const direction = getAlertDirection(market);
+            if (direction !== lastCandidateDirection) {
+                alerts.push({
+                    symbol: market.symbol,
+                    level,
+                    direction,
+                    message: formatTelegramAlert(market)
+                });
+                lastCandidateDirection = direction;
+            }
         }
         alertState[market.symbol] = {
             scheduleId: schedule.id,
-            levelTicks: currentThresholdTicks
+            levelTicks: currentThresholdTicks,
+            ...(lastSentDirection ? { lastDirection: lastSentDirection } : {})
         };
     }
 
     return { alertState, alerts };
+}
+
+function markAlertsSent(alertState, alerts) {
+    const nextState = { ...alertState };
+    for (const alert of alerts) {
+        const state = nextState[alert.symbol];
+        if (!state || typeof state !== 'object') {
+            throw new Error(`Cannot save sent alert direction without threshold state for ${alert.symbol}`);
+        }
+        nextState[alert.symbol] = { ...state, lastDirection: alert.direction };
+    }
+    return nextState;
 }
 
 module.exports = {
@@ -214,5 +244,6 @@ module.exports = {
     filterMarketsByCommission,
     formatTelegramAlert,
     getAlertSchedule,
+    markAlertsSent,
     pruneCandles
 };
