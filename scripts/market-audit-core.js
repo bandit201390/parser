@@ -129,13 +129,41 @@ function formatWeeklyReport(changes, current) {
         }
     }
     if (changes.feeChanges.length) {
-        lines.push('', `Commission changes (${changes.feeChanges.length}):`);
+        const changesBySymbol = new Map();
         for (const change of changes.feeChanges) {
-            const feeName = change.feeType === 'entryFee' ? 'entry' : 'close';
-            lines.push(
-                `~ ${change.symbol} ${change.direction} ${feeName}: ` +
-                `${formatFee(change.from)} → ${formatFee(change.to)}`
-            );
+            if (!changesBySymbol.has(change.symbol)) {
+                changesBySymbol.set(change.symbol, []);
+            }
+            changesBySymbol.get(change.symbol).push(change);
+        }
+
+        const pairCount = changesBySymbol.size;
+        lines.push('', `Commission changes (${pairCount} ${pairCount === 1 ? 'pair' : 'pairs'}):`);
+        for (const [symbol, symbolChanges] of changesBySymbol) {
+            const changesByRate = new Map();
+            for (const change of symbolChanges) {
+                const key = `${change.from}:${change.to}`;
+                if (!changesByRate.has(key)) {
+                    changesByRate.set(key, {
+                        from: change.from,
+                        to: change.to,
+                        fields: []
+                    });
+                }
+                changesByRate.get(key).fields.push(change);
+            }
+
+            for (const { from, to, fields } of changesByRate.values()) {
+                const fieldNames = fields
+                    .map((change) => `${change.direction} ${change.feeType === 'entryFee' ? 'entry' : 'close'}`)
+                    .sort();
+                const allFields = ['LONG close', 'LONG entry', 'SHORT close', 'SHORT entry'];
+                const scope = fieldNames.length === allFields.length &&
+                    allFields.every((field) => fieldNames.includes(field))
+                    ? 'all commissions'
+                    : fieldNames.join(', ');
+                lines.push(`~ ${symbol} ${scope}: ${formatFee(from)} → ${formatFee(to)}`);
+            }
         }
     }
     if (!changes.added.length && !changes.removed.length && !changes.feeChanges.length) {

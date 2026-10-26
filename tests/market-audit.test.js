@@ -71,7 +71,41 @@ test('compares newly listed and removed pairs plus direction-specific fee change
     const report = formatWeeklyReport(changes, current);
     assert.match(report, /New pairs \(1\):\n\+ NEWUSDT — LONG entry\/close 0\.1%\/0\.1%; SHORT entry\/close 0\.1%\/0\.1%/);
     assert.match(report, /Removed pairs \(1\):\n- OLDUSDT/);
-    assert.match(report, /BTCUSDT LONG entry: 0\.06% → 0\.07%/);
+    assert.match(report, /Commission changes \(1 pair\):\n~ BTCUSDT LONG entry: 0\.06% → 0\.07%/);
+});
+
+test('groups identical entry and close commission changes across both directions', () => {
+    const previous = validateSnapshot({
+        generatedAt: '2026-10-19T09:00:00.000Z',
+        markets: normalizeMarkets([market('MSTR/USDT', 0.0005)])
+    });
+    const current = validateSnapshot({
+        generatedAt: '2026-10-26T09:00:00.000Z',
+        markets: normalizeMarkets([market('MSTR/USDT', 0.0007)])
+    });
+    const changes = compareSnapshots(previous, current);
+    const report = formatWeeklyReport(changes, current);
+
+    assert.equal(changes.feeChanges.length, 4);
+    assert.match(report, /Commission changes \(1 pair\):\n~ MSTRUSDT all commissions: 0\.05% → 0\.07%/);
+    assert.equal(report.split('\n').filter((line) => line.startsWith('~ MSTRUSDT')).length, 1);
+});
+
+test('keeps distinct commission changes explicit when fee values differ', () => {
+    const previous = validateSnapshot({
+        generatedAt: '2026-10-19T09:00:00.000Z',
+        markets: normalizeMarkets([market('BTC/USDT', 0.0006)])
+    });
+    const current = validateSnapshot({
+        generatedAt: '2026-10-26T09:00:00.000Z',
+        markets: normalizeMarkets([
+            market('BTC/USDT', 0.0007, 0.0008, 0.0007, 0.0008)
+        ])
+    });
+    const report = formatWeeklyReport(compareSnapshots(previous, current), current);
+
+    assert.match(report, /~ BTCUSDT LONG entry, SHORT entry: 0\.06% → 0\.07%/);
+    assert.match(report, /~ BTCUSDT LONG close, SHORT close: 0\.06% → 0\.08%/);
 });
 
 test('formats a no-change weekly summary', () => {
