@@ -100,10 +100,10 @@ test('breaks equal daily-volatility rankings by symbol', () => {
     assert.deepEqual(result.ranked.map((market) => market.symbol), ['AAAUSDT', 'ZZZUSDT']);
 });
 
-test('formats a linked BUY or SELL alert with the signal candle close', () => {
+test('formats a linked BUY or SELL alert with the entry price', () => {
     assert.equal(
-        formatSignalAlert('BTCUSDT', { direction: 'BUY', close: 65000 }),
-        '🟢 ZLSMACE BUY #BTCUSDT | 5m close: 65000 | ' +
+        formatSignalAlert('BTCUSDT', { direction: 'BUY', entryPrice: 65000 }),
+        '🟢 BUY #BTCUSDT | Entry: 65000 | ' +
         '<a href="https://stobix.com/invite/qdjlyh?to=/futures/BTC/USDT">open on stobix</a>'
     );
 });

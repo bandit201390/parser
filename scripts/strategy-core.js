@@ -165,8 +165,8 @@ function formatSignalAlert(symbol, signal) {
     const base = symbol.replace(/USDT$/, '');
     const emoji = signal.direction === 'BUY' ? '🟢' : '🔴';
     const link = `https://stobix.com/invite/qdjlyh?to=/futures/${encodeURIComponent(base)}/USDT`;
-    return `${emoji} ZLSMACE ${signal.direction} #${symbol} | 5m close: ` +
-        `${signal.close.toLocaleString('en-US', { useGrouping: false, maximumFractionDigits: 8 })} | ` +
+    return `${emoji} ${signal.direction} #${symbol} | Entry: ` +
+        `${signal.entryPrice.toLocaleString('en-US', { useGrouping: false, maximumFractionDigits: 8 })} | ` +
         `<a href="${link}">open on stobix</a>`;
 }
 

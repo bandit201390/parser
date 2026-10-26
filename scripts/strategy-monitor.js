@@ -324,7 +324,10 @@ async function runMonitor() {
             symbol: market.symbol,
             direction: signal.direction,
             time: signal.time,
-            message: formatSignalAlert(market.symbol, signal)
+            message: formatSignalAlert(market.symbol, {
+                ...signal,
+                entryPrice: market.currentCandle.open
+            })
         };
         if (!state.pendingAlerts.some((item) =>
             item.symbol === alert.symbol && item.time === alert.time
