@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-10-20T00:49:21.318Z",
+  "generatedAt": "2026-10-26T15:54:34.532Z",
   "markets": {
     "AAVEUSDT": {
       "LONG": {
@@ -453,12 +453,12 @@
     },
     "MSTRUSDT": {
       "LONG": {
-        "entryFee": 0.0005,
-        "closeFee": 0.0005
+        "entryFee": 0.0007,
+        "closeFee": 0.0007
       },
       "SHORT": {
-        "entryFee": 0.0005,
-        "closeFee": 0.0005
+        "entryFee": 0.0007,
+        "closeFee": 0.0007
       }
     },
     "NEARUSDT": {
@@ -613,12 +613,12 @@
     },
     "SKHYNIXUSDT": {
       "LONG": {
-        "entryFee": 0.0005,
-        "closeFee": 0.0005
+        "entryFee": 0.0007,
+        "closeFee": 0.0007
       },
       "SHORT": {
-        "entryFee": 0.0005,
-        "closeFee": 0.0005
+        "entryFee": 0.0007,
+        "closeFee": 0.0007
       }
     },
     "SNXUSDT": {
@@ -643,12 +643,12 @@
     },
     "SPCXUSDT": {
       "LONG": {
-        "entryFee": 0.0005,
-        "closeFee": 0.0005
+        "entryFee": 0.0007,
+        "closeFee": 0.0007
       },
       "SHORT": {
-        "entryFee": 0.0005,
-        "closeFee": 0.0005
+        "entryFee": 0.0007,
+        "closeFee": 0.0007
       }
     },
     "STRKUSDT": {
