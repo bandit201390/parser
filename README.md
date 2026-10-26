@@ -15,6 +15,12 @@ The Pages snapshot continues to use the separate scheduled publisher workflow. T
 
 Only USDT futures pairs with LONG and SHORT entry and close commissions all at or below 0.1% are included in the monitor and published snapshot. A pair is excluded if any one of those per-side rates exceeds 0.1%; missing or invalid commission data stops the run rather than allowing an unverified pair through. Both the WebSocket monitor and Pages publisher re-evaluate fees whenever they load the Stobix markets list, so an excluded pair is eligible again once every fee is 0.1% or lower.
 
+## Start and stop ZLSMACE strategy alerts
+
+The separate **Monitor Stobix ZLSMACE strategy** workflow sends BUY/SELL signal alerts (not order-fill confirmations) for the top 10 eligible USDT futures pairs ranked by their high-low price range over the previous 24 hours, as a percentage of the first candle's open. Ranking uses a complete, contiguous set of 288 closed 5-minute candles; pairs without full history are excluded. The ranking refreshes at the start of each monitor run. Signals use the Pine strategy's default settings: 50-bar ZLSMA, 1-bar ATR, 2.0 ATR multiplier, 0.05% maximum counter-slope, and confirmed 5-minute candles. The monitor uses the existing `TELEGRAM_BOT_TOKEN` and the dedicated `TELEGRAM_STRATEGY_CHAT_ID` Actions secret, leaving the volatility and audit notifications on `TELEGRAM_CHAT_ID`. It applies the same 0.1% per-side commission filter as the volatility monitor.
+
+Start it from **Actions** → **Monitor Stobix ZLSMACE strategy** → **Run workflow**. Leave the internal `carry_state` input unchanged. The workflow runs for about 5 hours 40 minutes and starts a successor automatically; cancel its active run to stop monitoring. As with the volatility workflow, GitHub Actions is not a permanent-service host, so interruptions can cause monitoring gaps.
+
 ## Weekly market and commission audit
 
 The **Weekly Stobix market and commission audit** workflow checks the futures market list every Monday at 09:00 UTC and can also be run manually. It compares newly listed and removed USDT pairs, and LONG/SHORT entry and close fees, then sends the changes (or a no-change summary) to Telegram. Fees are read from Stobix's `entryFee` and `closeFee` values and reported as percentages. The first run establishes the baseline without sending a report; subsequent runs compare against the saved `data/stobix-market-fees.json` file. The workflow requires the existing `TELEGRAM_BOT_TOKEN` and `TELEGRAM_CHAT_ID` Actions secrets and write access to the repository contents.
