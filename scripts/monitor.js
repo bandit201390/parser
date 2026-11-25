@@ -7,7 +7,8 @@ const {
     calculateVolatility,
     filterMarketsByCommission,
     markAlertsSent,
-    pruneCandles
+    pruneCandles,
+    rankMarketsByDailyVolatility
 } = require('./monitor-core');
 
 const API_URL = 'https://api.stobix.com';
@@ -19,6 +20,8 @@ const REQUEST_CONCURRENCY = 4;
 const RETRIES = 4;
 const DEFAULT_MONITOR_DURATION_MS = 340 * 60_000;
 const MINUTE_MS = 60_000;
+const FIVE_MINUTE_MS = 5 * MINUTE_MS;
+const DAILY_VOLATILITY_MARKET_LIMIT = 15;
 const SNAPSHOT_URL = new URL('data/market-snapshot.json', PAGES_URL);
 const WORKFLOW_FILE = 'monitor-stobix.yml';
 
@@ -137,12 +140,13 @@ async function loadPreviousAlertState() {
         : {};
 }
 
-async function loadCandles(symbol, startTime, endTime) {
+async function loadCandles(symbol, startTime, endTime, interval = '1m') {
+    const intervalMs = interval === '5m' ? FIVE_MINUTE_MS : MINUTE_MS;
     const query = new URLSearchParams({
         startTime: startTime.toISOString(),
         endTime: endTime.toISOString(),
         symbol,
-        interval: '1m'
+        interval
     });
     const payload = await fetchJson(`${API_URL}/v1/rates/candles?${query}`);
 
@@ -158,7 +162,7 @@ async function loadCandles(symbol, startTime, endTime) {
         close: Number(payload.c[index])
     })).filter((candle) =>
         Number.isFinite(candle.time) &&
-        candle.time >= startTime.getTime() - MINUTE_MS &&
+        candle.time >= startTime.getTime() - intervalMs &&
         candle.time <= endTime.getTime() &&
         Number.isFinite(candle.open) &&
         Number.isFinite(candle.high) &&
@@ -167,7 +171,7 @@ async function loadCandles(symbol, startTime, endTime) {
     );
 
     if (candles.length === 0) {
-        throw new Error(`Stobix returned no hourly candles for ${symbol}`);
+        throw new Error(`Stobix returned no ${interval} candles for ${symbol}`);
     }
     return candles.sort((left, right) => left.time - right.time);
 }
@@ -194,19 +198,34 @@ async function loadMarkets() {
     }
 
     const ratesBySymbol = new Map(rates.map((rate) => [rate.s, rate]));
-    const endTime = new Date();
+    const now = new Date();
+    const endTime = now;
     const startTime = new Date(endTime.getTime() - 60 * MINUTE_MS);
+    const dailyEndTime = new Date(Math.floor(now.getTime() / FIVE_MINUTE_MS) * FIVE_MINUTE_MS);
+    const dailyStartTime = new Date(dailyEndTime.getTime() - 24 * 60 * MINUTE_MS);
     const initialized = await mapWithConcurrency(
         symbols,
         REQUEST_CONCURRENCY,
         async (symbol) => {
             try {
                 const candles = await loadCandles(symbol, startTime, endTime);
+                let dailyCandles = [];
+                try {
+                    dailyCandles = await loadCandles(
+                        symbol,
+                        dailyStartTime,
+                        dailyEndTime,
+                        '5m'
+                    );
+                } catch (error) {
+                    console.warn(`Unable to load 24h volatility candles for ${symbol}: ${error.message}`);
+                }
                 const rate = ratesBySymbol.get(symbol);
                 return {
                     symbol: normalizeSymbol(symbol),
                     commissionRate: eligibleBySymbol.get(symbol).commissionRate,
                     candles,
+                    dailyCandles,
                     currentPrice: rate && Number.isFinite(Number(rate.p))
                         ? Number(rate.p)
                         : candles[candles.length - 1].close,
@@ -230,8 +249,28 @@ async function loadMarkets() {
         );
     }
 
+    const { ranked, incomplete } = rankMarketsByDailyVolatility(
+        markets.map((market) => ({ symbol: market.symbol, candles: market.dailyCandles })),
+        dailyEndTime.getTime(),
+        DAILY_VOLATILITY_MARKET_LIMIT
+    );
+    if (incomplete.length) {
+        console.log(
+            `Excluded ${incomplete.length} pair(s) from notifications without a complete 24h volatility history: ` +
+            incomplete.join(', ')
+        );
+    }
+    if (ranked.length === 0) {
+        throw new Error('No eligible USDT futures pairs have a complete 24h volatility history');
+    }
+    const notificationSymbols = ranked.map((market) => market.symbol);
+    console.log(
+        `Enabled notifications for the top ${ranked.length} of ${markets.length} pairs by 24h volatility: ` +
+        ranked.map((market) => `${market.symbol} ${market.dailyVolatilityPct.toFixed(2)}%`).join(', ')
+    );
+
     console.log(`Initialized ${markets.length}/${symbols.length} markets with hourly candles.`);
-    return { markets, symbols };
+    return { markets, symbols, notificationSymbols };
 }
 
 function getCurrentMarketData(markets, now) {
@@ -444,7 +483,8 @@ async function runMonitor() {
         alertState = await loadPreviousAlertState();
     }
 
-    const { markets, symbols } = await loadMarkets();
+    const { markets, symbols, notificationSymbols } = await loadMarkets();
+    const notificationSymbolSet = new Set(notificationSymbols);
     const marketsBySymbol = new Map(markets.map((market) => [market.symbol, market]));
     const ratesSocket = connectRatesSocket(symbols, marketsBySymbol);
     try {
@@ -469,7 +509,8 @@ async function runMonitor() {
 
         while (Date.now() < deadline) {
             const now = Date.now();
-            const currentMarkets = getCurrentMarketData(markets, now);
+            const currentMarkets = getCurrentMarketData(markets, now)
+                .filter((market) => notificationSymbolSet.has(market.symbol));
             const { alertState: nextState, alerts } = advanceAlertState(
                 currentMarkets,
                 alertState

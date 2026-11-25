@@ -90,6 +90,47 @@ function calculateVolatility(candles) {
     return ((high - low) / candles[0].open) * 100;
 }
 
+function rankMarketsByDailyVolatility(markets, endTime, limit = 15) {
+    const intervalMs = 5 * 60_000;
+    const dailyVolatilityMs = 24 * 60 * 60_000;
+    if (!Array.isArray(markets) || !Number.isFinite(endTime) ||
+        !Number.isInteger(limit) || limit < 1) {
+        throw new Error('Cannot rank markets by daily volatility: invalid input');
+    }
+
+    const startTime = endTime - dailyVolatilityMs;
+    const candleCount = dailyVolatilityMs / intervalMs;
+    const ranked = [];
+    const incomplete = [];
+
+    for (const market of markets) {
+        const candles = market.candles.filter((candle) =>
+            candle.time >= startTime && candle.time < endTime
+        );
+        const completeHistory = candles.length === candleCount &&
+            candles.every((candle, index) =>
+                candle.time === startTime + index * intervalMs
+            );
+        if (!completeHistory || candles[0].open <= 0) {
+            incomplete.push(market.symbol);
+            continue;
+        }
+
+        const high = Math.max(...candles.map((candle) => candle.high));
+        const low = Math.min(...candles.map((candle) => candle.low));
+        ranked.push({
+            ...market,
+            dailyVolatilityPct: ((high - low) / candles[0].open) * 100
+        });
+    }
+
+    ranked.sort((left, right) =>
+        right.dailyVolatilityPct - left.dailyVolatilityPct ||
+        left.symbol.localeCompare(right.symbol)
+    );
+    return { ranked: ranked.slice(0, limit), incomplete };
+}
+
 function addPriceToCandles(candles, timestamp, price) {
     if (!Number.isFinite(timestamp) || !Number.isFinite(price) || price <= 0) {
         return;
@@ -245,5 +286,6 @@ module.exports = {
     formatTelegramAlert,
     getAlertSchedule,
     markAlertsSent,
-    pruneCandles
+    pruneCandles,
+    rankMarketsByDailyVolatility
 };

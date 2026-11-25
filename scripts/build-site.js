@@ -4,7 +4,8 @@ const {
     advanceAlertState,
     calculateVolatility,
     filterMarketsByCommission,
-    markAlertsSent
+    markAlertsSent,
+    rankMarketsByDailyVolatility
 } = require('./monitor-core');
 
 const API_URL = 'https://api.stobix.com';
@@ -15,6 +16,8 @@ const [REPOSITORY_OWNER, REPOSITORY_NAME] = REPOSITORY.split('/');
 const PAGES_URL = process.env.PAGES_URL || `https://${REPOSITORY_OWNER}.github.io/${REPOSITORY_NAME}/`;
 const REQUEST_CONCURRENCY = 4;
 const RETRIES = 4;
+const FIVE_MINUTE_MS = 5 * 60_000;
+const DAILY_VOLATILITY_MARKET_LIMIT = 15;
 
 async function fetchJson(url) {
     for (let attempt = 0; attempt <= RETRIES; attempt += 1) {
@@ -111,6 +114,34 @@ async function loadMarket(symbol, startTime, endTime) {
             ? ((candles[candles.length - 1].close - candles[0].open) / candles[0].open) * 100
             : null
     };
+}
+
+async function loadDailyCandles(symbol, startTime, endTime) {
+    const query = new URLSearchParams({
+        startTime: startTime.toISOString(),
+        endTime: endTime.toISOString(),
+        symbol,
+        interval: '5m'
+    });
+    const payload = await fetchJson(`${API_URL}/v1/rates/candles?${query}`);
+    if (payload.s !== 'ok' || !Array.isArray(payload.t) ||
+        !Array.isArray(payload.o) || !Array.isArray(payload.h) ||
+        !Array.isArray(payload.l) || !Array.isArray(payload.c)) {
+        throw new Error(`Stobix returned invalid 24h candles for ${symbol}`);
+    }
+
+    return payload.t.map((timestamp, index) => ({
+        time: Number(timestamp) * 1000,
+        open: Number(payload.o[index]),
+        high: Number(payload.h[index]),
+        low: Number(payload.l[index]),
+        close: Number(payload.c[index])
+    })).filter((candle) =>
+        Number.isFinite(candle.time) &&
+        candle.time >= startTime.getTime() - FIVE_MINUTE_MS &&
+        candle.time <= endTime.getTime() &&
+        [candle.open, candle.high, candle.low, candle.close].every(Number.isFinite)
+    ).sort((left, right) => left.time - right.time);
 }
 
 async function loadPreviousSnapshot() {
@@ -231,8 +262,49 @@ async function main() {
     }
 
     const previousSnapshot = await loadPreviousSnapshot();
+    const dailyEndTime = new Date(
+        Math.floor(endTime.getTime() / FIVE_MINUTE_MS) * FIVE_MINUTE_MS
+    );
+    const dailyStartTime = new Date(dailyEndTime.getTime() - 24 * 60 * 60_000);
+    const dailyMarkets = await mapWithConcurrency(
+        symbols,
+        REQUEST_CONCURRENCY,
+        async (symbol) => {
+            try {
+                return {
+                    symbol: symbol.replace('/', ''),
+                    candles: await loadDailyCandles(symbol, dailyStartTime, dailyEndTime)
+                };
+            } catch (error) {
+                console.warn(`Unable to load 24h volatility candles for ${symbol}: ${error.message}`);
+                return { symbol: symbol.replace('/', ''), candles: [] };
+            }
+        }
+    );
+    const { ranked, incomplete } = rankMarketsByDailyVolatility(
+        dailyMarkets,
+        dailyEndTime.getTime(),
+        DAILY_VOLATILITY_MARKET_LIMIT
+    );
+    if (incomplete.length) {
+        console.log(
+            `Excluded ${incomplete.length} pair(s) from notifications without a complete 24h volatility history: ` +
+            incomplete.join(', ')
+        );
+    }
+    if (ranked.length === 0) {
+        throw new Error('No eligible USDT futures pairs have a complete 24h volatility history');
+    }
+    const notificationSymbols = new Set(ranked.map((market) => market.symbol));
+    const notificationMarkets = results.filter((market) =>
+        notificationSymbols.has(market.symbol) && market.volatilityValue !== null
+    );
+    console.log(
+        `Enabled notifications for the top ${ranked.length} of ${symbols.length} pairs by 24h volatility: ` +
+        ranked.map((market) => `${market.symbol} ${market.dailyVolatilityPct.toFixed(2)}%`).join(', ')
+    );
     const { alertState, alerts } = advanceAlertState(
-        results,
+        notificationMarkets,
         previousSnapshot?.alertState || {}
     );
     let snapshotAlertState = alertState;

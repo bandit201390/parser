@@ -8,7 +8,8 @@ const {
     formatTelegramAlert,
     getAlertSchedule,
     markAlertsSent,
-    pruneCandles
+    pruneCandles,
+    rankMarketsByDailyVolatility
 } = require('../scripts/monitor-core');
 const { handleRatesUpdate, parseCarriedState } = require('../scripts/monitor');
 
@@ -22,6 +23,65 @@ test('calculates high-low volatility relative to the first candle open', () => {
 test('returns null when candle data is missing or invalid', () => {
     assert.equal(calculateVolatility([]), null);
     assert.equal(calculateVolatility([{ open: 0, high: 1, low: 0 }]), null);
+});
+
+test('ranks only pairs with a complete 24h of 5m candles by high-low percentage', () => {
+    const makeMarket = (symbol, range, count = 288) => ({
+        symbol,
+        candles: Array.from({ length: count }, (_, index) => ({
+            time: (index - 288) * 300_000,
+            open: 100,
+            high: 100 + range,
+            low: 100,
+            close: 100
+        }))
+    });
+    const result = rankMarketsByDailyVolatility([
+        makeMarket('LOWUSDT', 1),
+        makeMarket('HIGHUSDT', 5),
+        makeMarket('MIDUSDT', 3),
+        makeMarket('NEWUSDT', 8, 100)
+    ], 0, 2);
+
+    assert.deepEqual(result.ranked.map((market) => market.symbol), ['HIGHUSDT', 'MIDUSDT']);
+    assert.deepEqual(result.ranked.map((market) => market.dailyVolatilityPct), [5, 3]);
+    assert.deepEqual(result.incomplete, ['NEWUSDT']);
+});
+
+test('defaults to the top 15 markets by daily volatility', () => {
+    const markets = Array.from({ length: 20 }, (_, index) => ({
+        symbol: `PAIR${String(index).padStart(2, '0')}USDT`,
+        candles: Array.from({ length: 288 }, (_, candleIndex) => ({
+            time: (candleIndex - 288) * 300_000,
+            open: 100,
+            high: 100 + index,
+            low: 100,
+            close: 100
+        }))
+    }));
+
+    const result = rankMarketsByDailyVolatility(markets, 0);
+
+    assert.equal(result.ranked.length, 15);
+    assert.deepEqual(
+        result.ranked.map((market) => market.symbol),
+        Array.from({ length: 15 }, (_, index) => `PAIR${String(19 - index).padStart(2, '0')}USDT`)
+    );
+});
+
+test('breaks equal daily-volatility rankings by symbol', () => {
+    const candles = Array.from({ length: 288 }, (_, index) => ({
+        time: (index - 288) * 300_000,
+        open: 100,
+        high: 102,
+        low: 100,
+        close: 101
+    }));
+    const result = rankMarketsByDailyVolatility([
+        { symbol: 'ZZZUSDT', candles },
+        { symbol: 'AAAUSDT', candles }
+    ], 0);
+    assert.deepEqual(result.ranked.map((market) => market.symbol), ['AAAUSDT', 'ZZZUSDT']);
 });
 
 test('excludes pairs only when any LONG/SHORT entry/close commission exceeds 0.1%', () => {
